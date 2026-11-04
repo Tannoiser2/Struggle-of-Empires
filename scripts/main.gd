@@ -1028,6 +1028,13 @@ func _mostra_combattimento(cb: Dictionary) -> void:
 		vv.add_child(etichetta(esito + (". Perdite: " + ", ".join(perdite) + "." if not perdite.is_empty() else ". Nessuna perdita."), F_TESTO, 20))
 	v.add_child(etichetta(str(cb.get("esito", "")), F_GRASSETTO, 23, C_CERALACCA))
 	v.add_child(bottone("Continua", _chiudi_popup, 22))
+	# i combattimenti fra altre potenze si chiudono da soli dopo qualche secondo
+	var dg := m.gioc_di(str(cb.get("dpot", "")))
+	if not io(int(cb.get("att", -1))) and not io(dg):
+		var mio_popup := popup
+		await get_tree().create_timer(5.0 / maxf(velocita, 0.5)).timeout
+		if is_instance_valid(mio_popup) and popup == mio_popup:
+			_chiudi_popup()
 
 func _mostra_punteggio(e: Dictionary) -> void:
 	var gu := int(e["guerra"])
