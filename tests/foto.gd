@@ -24,6 +24,16 @@ func _run():
 	main.scelta_pot = "fr"
 	main._avvia_locale()
 	main.velocita = 200.0
+	if modo == "banco":
+		for q in 30: await process_frame
+		main._mostra_banco()
+		for q in 5: await process_frame
+		var pan = main.popup.get_child(0)
+		print("pannello ", pan.size, " ", pan.get_combined_minimum_size())
+		for ch in pan.get_child(0).get_children():
+			print("  ", ch.get_class(), " ", ch.get_combined_minimum_size())
+		await shot("banco")
+		quit(); return
 	var target := int(args[1]) if args.size() > 1 else 1
 	var passi := 0
 	var visti := 0

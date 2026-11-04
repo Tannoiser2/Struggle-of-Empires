@@ -788,7 +788,18 @@ func _apri_popup(titolo: String, larg := 900, alto := 0) -> VBoxContainer:
 	v.add_child(etichetta(titolo, F_TITOLO, 34, C_CERALACCA))
 	p.resized.connect(func(): p.position = (velo.size - p.size) / 2.0)
 	velo.resized.connect(func(): p.position = (velo.size - p.size) / 2.0)
+	_adatta_popup.call_deferred(p, velo)
 	return v
+
+## le etichette a capo all'inizio misurano altezze enormi: dopo un paio di frame si riporta il riquadro alla misura giusta
+func _adatta_popup(p: Control, velo: Control) -> void:
+	for k in 3:
+		await get_tree().process_frame
+		if not is_instance_valid(p):
+			return
+		p.reset_size()
+		p.size.y = minf(p.size.y, velo.size.y - 20)
+		p.position = (velo.size - p.size) / 2.0
 
 func _chiudi_popup() -> void:
 	if is_instance_valid(popup):
@@ -821,21 +832,27 @@ func _carta_tessera(t: String, w := 150.0, testo_extra := "") -> VBoxContainer:
 	v.add_child(immagine("res://assets/tessere/%s.jpg" % d["img"], w, w * 0.72))
 	var l := etichetta(d["nome"], F_GRASSETTO, 17)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size.x = w
 	v.add_child(l)
 	if testo_extra != "":
 		var l2 := etichetta(testo_extra, F_TESTO, 15, C_SPENTO)
 		l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l2.custom_minimum_size.x = w
 		v.add_child(l2)
 	v.tooltip_text = d["testo"]
 	return v
 
 func _mostra_banco() -> void:
 	var v := _apri_popup("Le tessere sul tabellone", 1500, 0)
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(1460, 720)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(sc)
 	var g := GridContainer.new()
 	g.columns = 8
 	g.add_theme_constant_override("h_separation", 10)
 	g.add_theme_constant_override("v_separation", 8)
-	v.add_child(g)
+	sc.add_child(g)
 	for t in Dati.ORDINE_TESSERE:
 		var n := int(m.s["banco"].get(t, 0))
 		var c := _carta_tessera(t, 160, "%s - ne restano %d" % [m.costo_testo(t), n])
@@ -857,9 +874,13 @@ func _mostra_giocatore(i: int) -> void:
 		m.locali_di(p), int(float(m.s["rep"][i]) * 100)], F_TESTO, 20)
 	inf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(inf)
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(1060, 480)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(sc)
 	var g := GridContainer.new()
 	g.columns = 6
-	v.add_child(g)
+	sc.add_child(g)
 	if gg["tessere"].is_empty():
 		v.add_child(etichetta("Nessuna tessera.", F_CORSIVO, 19, C_SPENTO))
 	for x in gg["tessere"]:

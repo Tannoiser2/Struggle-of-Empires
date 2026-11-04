@@ -287,10 +287,10 @@ func _disegna_tracciati(sc: float) -> void:
 	var rnd := int(m.s.get("round", 0))
 	if rnd >= 1 and rnd <= 6:
 		var c := a_schermo(Dati.POS_ROUND[rnd - 1])
-		draw_arc(c, 25.0 * sc, 0, TAU, 40, Color(0.7, 0.05, 0.05, 0.95), 5.0 * sc, true)
+		draw_arc(c, 21.0 * sc, 0, TAU, 40, Color(0.7, 0.05, 0.05, 0.95), 4.0 * sc, true)
 	var gu := clampi(int(m.s.get("guerra", 1)), 1, 3)
 	var cg := a_schermo(Dati.POS_GUERRA[gu - 1])
-	draw_rect(Rect2(cg - Vector2(34, 32) * sc, Vector2(68, 64) * sc), Color(0.7, 0.05, 0.05, 0.95), false, 5.0 * sc)
+	draw_arc(cg, 15.0 * sc, 0, TAU, 32, Color(0.7, 0.05, 0.05, 0.95), 4.0 * sc, true)
 	# proposta dell'asta in corso
 	var a: Dictionary = m.s.get("asta", {})
 	if not a.is_empty() and int(a.get("offerta", -1)) >= 0:
@@ -298,7 +298,7 @@ func _disegna_tracciati(sc: float) -> void:
 			var p: String = a["R"] if k == 0 else a["B"]
 			if p != "":
 				var cp := a_schermo(Dati.POS_PROPOSTA[k])
-				draw_texture_rect(tex["controllo_" + p], Rect2(cp - Vector2(26, 26) * sc, Vector2(52, 52) * sc), false)
+				draw_texture_rect(tex["controllo_" + p], Rect2(cp - Vector2(19, 19) * sc, Vector2(38, 38) * sc), false)
 	# Grandi Alleanze
 	for lato in ["R", "B"]:
 		var arr: Array = m.s["slot"][lato]
@@ -306,8 +306,8 @@ func _disegna_tracciati(sc: float) -> void:
 		for k in mini(arr.size(), pos.size()):
 			var cc := a_schermo(pos[k])
 			var col := Color(0.75, 0.12, 0.1) if lato == "R" else Color(0.15, 0.3, 0.7)
-			draw_circle(cc, 30.0 * sc, col)
-			draw_texture_rect(tex["controllo_" + arr[k]], Rect2(cc - Vector2(26, 26) * sc, Vector2(52, 52) * sc), false)
+			draw_circle(cc, 19.0 * sc, col)
+			draw_texture_rect(tex["controllo_" + arr[k]], Rect2(cc - Vector2(16, 16) * sc, Vector2(32, 32) * sc), false)
 	# popolazione e punti vittoria
 	var per_pop := {}
 	var per_pv := {}
@@ -321,11 +321,11 @@ func _disegna_tracciati(sc: float) -> void:
 		var cpop := a_schermo(Dati.pos_popolazione(int(v)))
 		var arr2: Array = per_pop[v]
 		for k in arr2.size():
-			var off := Vector2((k % 3) - 1, (k / 3) - 0.5) * 13.0 * sc
+			var off := Vector2((k % 4) * 14.0 - 21.0, (k / 4) * 10.0 - 5.0) * sc
 			_disco(cpop + off, arr2[k], 7.5 * sc)
 	for v in per_pv:
 		var cpv := a_schermo(Dati.pos_pv(int(v)))
 		var arr3: Array = per_pv[v]
 		for k in arr3.size():
-			var off2 := Vector2((k % 3) - 1, (k / 3)) * 9.0 * sc
+			var off2 := Vector2((k % 3) - 1, (k / 3)) * 8.0 * sc
 			_disco(cpv + off2, arr3[k], 7.0 * sc)

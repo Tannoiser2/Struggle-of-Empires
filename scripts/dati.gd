@@ -24,24 +24,24 @@ const MAX_ALLEANZE_LOCALI := 6
 ## pv: punti vittoria per 1°, 2°, 3° posto. nave: si possono tenere flotte. gruppo: per il Viaggio
 ## in mare aperto (si tira il dado quando si cambia gruppo, tranne fra Europa e Europa o Americhe e Americhe).
 const REGIONI := {
-	"nordamerica": {"nome": "Nord America", "pv": [4, 2], "nave": true, "gruppo": "americhe", "col": true, "pos": Vector2(0.235, 0.135)},
-	"caraibi": {"nome": "Caraibi", "pv": [5, 3], "nave": true, "gruppo": "americhe", "col": true, "pos": Vector2(0.26, 0.275)},
-	"sudamerica": {"nome": "Sud America", "pv": [5, 3], "nave": true, "gruppo": "americhe", "col": true, "pos": Vector2(0.25, 0.53)},
-	"africa": {"nome": "Africa", "pv": [3, 2], "nave": true, "gruppo": "africa", "col": true, "pos": Vector2(0.56, 0.845)},
-	"india": {"nome": "India", "pv": [5, 3], "nave": true, "gruppo": "india", "col": true, "pos": Vector2(0.705, 0.865)},
-	"indie": {"nome": "Indie Orientali", "pv": [4, 2], "nave": true, "gruppo": "indie", "col": true, "pos": Vector2(0.86, 0.87)},
-	"baltico": {"nome": "Baltico", "pv": [5, 3, 2], "nave": true, "gruppo": "europa", "col": false, "pos": Vector2(0.735, 0.2)},
-	"germania": {"nome": "Stati Tedeschi", "pv": [8, 5, 3], "nave": false, "gruppo": "europa", "col": false, "pos": Vector2(0.665, 0.4)},
-	"centro": {"nome": "Europa Centrale", "pv": [6, 4, 2], "nave": false, "gruppo": "europa", "col": false, "pos": Vector2(0.86, 0.325)},
-	"mediterraneo": {"nome": "Mediterraneo", "pv": [6, 4, 2], "nave": true, "gruppo": "europa", "col": false, "pos": Vector2(0.64, 0.6)},
-	"ottomano": {"nome": "Impero Ottomano", "pv": [4, 2, 1], "nave": false, "gruppo": "europa", "col": false, "pos": Vector2(0.85, 0.53)},
-	"casa_gb": {"nome": "Inghilterra", "casa": "gb", "nave": true, "gruppo": "europa", "pos": Vector2(0.522, 0.235)},
-	"casa_fr": {"nome": "Francia", "casa": "fr", "nave": true, "gruppo": "europa", "pos": Vector2(0.545, 0.42)},
-	"casa_sp": {"nome": "Spagna", "casa": "sp", "nave": true, "gruppo": "europa", "pos": Vector2(0.46, 0.555)},
-	"casa_up": {"nome": "Province Unite", "casa": "up", "nave": true, "gruppo": "europa", "pos": Vector2(0.598, 0.255)},
-	"casa_au": {"nome": "Austria", "casa": "au", "nave": true, "gruppo": "europa", "pos": Vector2(0.727, 0.425)},
-	"casa_pr": {"nome": "Prussia", "casa": "pr", "nave": true, "gruppo": "europa", "pos": Vector2(0.705, 0.268)},
-	"casa_ru": {"nome": "Russia", "casa": "ru", "nave": true, "gruppo": "europa", "pos": Vector2(0.905, 0.12)},
+	"nordamerica": {"nome": "Nord America", "pv": [4, 2], "nave": true, "gruppo": "americhe", "col": true, "pos": Vector2(0.3111, 0.2153)},
+	"caraibi": {"nome": "Caraibi", "pv": [5, 3], "nave": true, "gruppo": "americhe", "col": true, "pos": Vector2(0.3111, 0.3856)},
+	"sudamerica": {"nome": "Sud America", "pv": [5, 3], "nave": true, "gruppo": "americhe", "col": true, "pos": Vector2(0.3333, 0.5609)},
+	"africa": {"nome": "Africa", "pv": [3, 2], "nave": true, "gruppo": "africa", "col": true, "pos": Vector2(0.4444, 0.8213)},
+	"india": {"nome": "India", "pv": [5, 3], "nave": true, "gruppo": "india", "col": true, "pos": Vector2(0.6278, 0.8514)},
+	"indie": {"nome": "Indie Orientali", "pv": [4, 2], "nave": true, "gruppo": "indie", "col": true, "pos": Vector2(0.8667, 0.8313)},
+	"baltico": {"nome": "Baltico", "pv": [5, 3], "nave": true, "gruppo": "europa", "col": false, "pos": Vector2(0.8833, 0.2153)},
+	"germania": {"nome": "Stati Tedeschi", "pv": [8, 5, 3], "nave": false, "gruppo": "europa", "col": false, "pos": Vector2(0.6778, 0.3756)},
+	"centro": {"nome": "Europa Centrale", "pv": [6, 4, 2], "nave": false, "gruppo": "europa", "col": false, "pos": Vector2(0.8667, 0.3706)},
+	"mediterraneo": {"nome": "Mediterraneo", "pv": [6, 4, 2], "nave": true, "gruppo": "europa", "col": false, "pos": Vector2(0.6667, 0.5609)},
+	"ottomano": {"nome": "Impero Ottomano", "pv": [4, 2], "nave": false, "gruppo": "europa", "col": false, "pos": Vector2(0.8667, 0.5409)},
+	"casa_gb": {"nome": "Inghilterra", "casa": "gb", "nave": true, "gruppo": "europa", "pos": Vector2(0.6000, 0.2704)},
+	"casa_fr": {"nome": "Francia", "casa": "fr", "nave": true, "gruppo": "europa", "pos": Vector2(0.6278, 0.4207)},
+	"casa_sp": {"nome": "Spagna", "casa": "sp", "nave": true, "gruppo": "europa", "pos": Vector2(0.5611, 0.6010)},
+	"casa_up": {"nome": "Province Unite", "casa": "up", "nave": true, "gruppo": "europa", "pos": Vector2(0.6806, 0.2754)},
+	"casa_au": {"nome": "Austria", "casa": "au", "nave": true, "gruppo": "europa", "pos": Vector2(0.7750, 0.4207)},
+	"casa_pr": {"nome": "Prussia", "casa": "pr", "nave": true, "gruppo": "europa", "pos": Vector2(0.7556, 0.2504)},
+	"casa_ru": {"nome": "Russia", "casa": "ru", "nave": true, "gruppo": "europa", "pos": Vector2(0.9611, 0.2304)},
 }
 ## le 11 regioni che danno punti vittoria, nell'ordine in cui si contano
 const REGIONI_PV := ["germania", "centro", "baltico", "mediterraneo", "ottomano", "nordamerica", "caraibi",
@@ -115,17 +115,17 @@ static func round_per_guerra(np: int) -> int:
 # ------------------------------------------------------------ alleanze locali
 ## reg: regioni dove vale; tipo: "e" solo esercito, "en" esercito o flotta; costo in Oro
 const ALLEANZE := {
-	"nativi": {"nome": "Nativi americani", "reg": ["nordamerica"], "tipo": "e", "costo": 0, "pos": Vector2(0.135, 0.06)},
-	"gauchos": {"nome": "Gauchos", "reg": ["sudamerica"], "tipo": "e", "costo": 1, "pos": Vector2(0.27, 0.62)},
-	"portogallo": {"nome": "Portogallo", "reg": ["sudamerica", "india", "indie"], "tipo": "en", "costo": 1, "pos": Vector2(0.385, 0.525)},
-	"nawab": {"nome": "Nawab indiano", "reg": ["india"], "tipo": "e", "costo": 0, "pos": Vector2(0.735, 0.88)},
-	"svezia": {"nome": "Svezia", "reg": ["baltico"], "tipo": "en", "costo": 0, "pos": Vector2(0.66, 0.075)},
-	"danimarca": {"nome": "Danimarca", "reg": ["baltico"], "tipo": "en", "costo": 1, "pos": Vector2(0.61, 0.165)},
-	"sassonia": {"nome": "Sassonia", "reg": ["germania"], "tipo": "e", "costo": 0, "pos": Vector2(0.61, 0.33)},
-	"baviera": {"nome": "Baviera", "reg": ["germania"], "tipo": "e", "costo": 0, "pos": Vector2(0.71, 0.33)},
-	"cosacchi": {"nome": "Cosacchi", "reg": ["centro"], "tipo": "e", "costo": 0, "pos": Vector2(0.92, 0.215)},
-	"napoli": {"nome": "Napoli", "reg": ["mediterraneo"], "tipo": "e", "costo": 0, "pos": Vector2(0.735, 0.625)},
-	"ottomani": {"nome": "Ottomani", "reg": ["mediterraneo", "ottomano"], "tipo": "en", "costo": 1, "pos": Vector2(0.905, 0.6)},
+	"nativi": {"nome": "Nativi americani", "reg": ["nordamerica"], "tipo": "e", "costo": 0, "pos": Vector2(0.2500, 0.2454)},
+	"gauchos": {"nome": "Gauchos", "reg": ["sudamerica"], "tipo": "e", "costo": 1, "pos": Vector2(0.3083, 0.6210)},
+	"portogallo": {"nome": "Portogallo", "reg": ["sudamerica", "india", "indie"], "tipo": "en", "costo": 1, "pos": Vector2(0.5111, 0.6010)},
+	"nawab": {"nome": "Nawab indiano", "reg": ["india"], "tipo": "e", "costo": 0, "pos": Vector2(0.6778, 0.8213)},
+	"svezia": {"nome": "Svezia", "reg": ["baltico"], "tipo": "en", "costo": 0, "pos": Vector2(0.8333, 0.1352)},
+	"danimarca": {"nome": "Danimarca", "reg": ["baltico"], "tipo": "en", "costo": 1, "pos": Vector2(0.6944, 0.1452)},
+	"sassonia": {"nome": "Sassonia", "reg": ["germania"], "tipo": "e", "costo": 0, "pos": Vector2(0.7722, 0.3456)},
+	"baviera": {"nome": "Baviera", "reg": ["germania"], "tipo": "e", "costo": 0, "pos": Vector2(0.7167, 0.4056)},
+	"cosacchi": {"nome": "Cosacchi", "reg": ["centro"], "tipo": "e", "costo": 0, "pos": Vector2(0.8111, 0.4056)},
+	"napoli": {"nome": "Napoli", "reg": ["mediterraneo"], "tipo": "e", "costo": 0, "pos": Vector2(0.7528, 0.5659)},
+	"ottomani": {"nome": "Ottomani", "reg": ["mediterraneo", "ottomano"], "tipo": "en", "costo": 1, "pos": Vector2(0.8111, 0.6460)},
 }
 
 # ------------------------------------------------------------ tessere
@@ -202,25 +202,22 @@ const NOME_SEGRETA := {"pirati": "Incitare attacco pirata", "rivolta": "Incitare
 const FORZA_SEGRETA := {"pirati": 1, "rivolta": 3}
 
 # ------------------------------------------------------------ posizioni sulla plancia (frazioni)
-const POS_ROUND := [Vector2(0.069, 0.138), Vector2(0.069, 0.196), Vector2(0.069, 0.254), Vector2(0.069, 0.312),
-	Vector2(0.069, 0.37), Vector2(0.069, 0.453)]
-const POS_GUERRA := [Vector2(0.139, 0.539), Vector2(0.139, 0.593), Vector2(0.139, 0.645)]
-const POS_PROPOSTA := [Vector2(0.053, 0.622), Vector2(0.053, 0.692)]
-const POS_ALLEANZE_R := [Vector2(0.036, 0.817), Vector2(0.081, 0.817), Vector2(0.125, 0.817), Vector2(0.166, 0.817)]
-const POS_ALLEANZE_B := [Vector2(0.036, 0.886), Vector2(0.081, 0.886), Vector2(0.125, 0.886), Vector2(0.166, 0.886)]
+## plancia Deluxe (Mappa.png): round in alto, guerre in alto a destra, alleanze e popolazione a sinistra
+const POS_ROUND := [Vector2(0.2483, 0.0270), Vector2(0.2722, 0.0270), Vector2(0.2972, 0.0270), Vector2(0.3217, 0.0270), Vector2(0.3450, 0.0270), Vector2(0.3689, 0.0270)]
+const POS_GUERRA := [Vector2(0.9000, 0.0631), Vector2(0.9150, 0.0631), Vector2(0.9311, 0.0631)]
+const POS_PROPOSTA := [Vector2(0.1917, 0.0821), Vector2(0.1917, 0.1322)]
+const POS_ALLEANZE_R := [Vector2(0.0983, 0.0851), Vector2(0.1200, 0.0851), Vector2(0.1411, 0.0851), Vector2(0.1622, 0.0851)]
+const POS_ALLEANZE_B := [Vector2(0.0983, 0.1322), Vector2(0.1200, 0.1322), Vector2(0.1411, 0.1322), Vector2(0.1622, 0.1322)]
 
 static func pos_popolazione(v: int) -> Vector2:
-	var xs := [0.252, 0.295, 0.338, 0.381, 0.425]
-	if v <= 4:
-		return Vector2(xs[v], 0.809)
-	return Vector2(xs[9 - v], 0.897)
+	var ys := [510.0, 475.0, 441.0, 409.0, 375.0, 341.0, 305.0, 274.0, 237.0, 205.0]
+	return Vector2(205.0 / 1800.0, ys[clampi(v, 0, 9)] / 998.4)
 
 static func pos_pv(v: int) -> Vector2:
 	v = clampi(v, 0, 100)
-	if v <= 10:
-		return Vector2(0.022, (612.0 - v * 51.2) / 1286.0)
-	if v <= 44:
-		return Vector2((38.0 + (v - 11) * 50.6) / 1800.0, 35.0 / 1286.0)
-	if v <= 66:
-		return Vector2(1760.0 / 1800.0, (88.0 + (v - 45) * 52.2) / 1286.0)
-	return Vector2((1757.0 - (v - 67) * 52.0) / 1800.0, 1235.0 / 1286.0)
+	if v == 0:
+		return Vector2(37.0 / 1800.0, 968.0 / 998.4)
+	var col := (v - 1) / 25
+	var riga := (v - 1) % 25
+	var xs := [20.0, 52.0, 86.0, 120.0]
+	return Vector2(xs[col] / 1800.0, (918.0 - riga * 37.33) / 998.4)
