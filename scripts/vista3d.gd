@@ -504,8 +504,11 @@ func _tracciati() -> void:
 	for v in per_pv:
 		var arr3: Array = per_pv[v]
 		for k in arr3.size():
-			var mp := Pezzi3D.pezzo("meeple_" + arr3[k], 0.95, 0.45)
-			_metti(mp, pf(Dati.pos_pv(int(v))) + Vector3(-0.35 + (k % 3) * 0.35, 0, -0.3 + k * 0.22))
+			# in file dritte, tutti rivolti nello stesso verso (niente diagonali)
+			var mp := Pezzi3D.pezzo("meeple_" + arr3[k], 0.8, 0.45)
+			var col := k % 4
+			var riga := k / 4
+			_metti(mp, pf(Dati.pos_pv(int(v))) + Vector3(-0.66 + col * 0.44, 0, -0.3 + riga * 0.6))
 
 func _tessere() -> void:
 	var banco: Dictionary = m.s["banco"]

@@ -50,10 +50,16 @@ func _run():
 				for q in 10: await process_frame
 				await shot(modo)
 				if main.vista != null:
-					main.vista.distanza = 30.0
-					main.vista.bersaglio = Vector3(10, 0, -3)
+					main.vista.distanza = 14.0
+					main.vista.pitch = deg_to_rad(40.0)
+					main.vista.bersaglio = Vector3(12, 0, -5)
 					main.vista._aggiorna_camera()
 					await shot(modo + "_zoom")
+					main.vista.distanza = 16.0
+					main.vista.pitch = deg_to_rad(45.0)
+					main.vista.bersaglio = Vector3(-40, 0, 18)
+					main.vista._aggiorna_camera()
+					await shot(modo + "_pv")
 				break
 		var id: String = main.ia.decidi(r)
 		await main._decidi(id)

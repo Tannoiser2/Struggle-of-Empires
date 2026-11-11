@@ -216,7 +216,7 @@ static func pos_popolazione(v: int) -> Vector2:
 static func pos_pv(v: int) -> Vector2:
 	v = clampi(v, 0, 100)
 	if v == 0:
-		return Vector2(37.0 / 1800.0, 968.0 / 998.4)
+		return Vector2(62.0 / 1800.0, 966.0 / 998.4)
 	var col := (v - 1) / 25
 	var riga := (v - 1) % 25
 	var xs := [20.0, 52.0, 86.0, 120.0]

@@ -77,7 +77,7 @@ static func sagoma(nome: String, larg: float, spessore: float, piatto: bool, imm
 			var b := pts[ids[1]]
 			var c := pts[ids[2]]
 			var orient := (b - a).cross(c - a)
-			if (orient < 0) == (lato > 0):
+			if (orient > 0) == (lato > 0):
 				ids = [ids[0], ids[2], ids[1]]
 			for id in ids:
 				st.set_normal(n)
@@ -96,9 +96,10 @@ static func sagoma(nome: String, larg: float, spessore: float, piatto: bool, imm
 		var d := (b2 - a2).normalized()
 		var nn := Vector3(d.y, -d.x, 0) if area > 0 else Vector3(-d.y, d.x, 0)
 		var v := [Vector3(a2.x, a2.y, h2), Vector3(b2.x, b2.y, h2), Vector3(b2.x, b2.y, -h2), Vector3(a2.x, a2.y, -h2)]
+		# Godot considera "davanti" le facce con i vertici in senso orario visti da fuori
 		var ordine := [0, 1, 2, 0, 2, 3]
 		var test: Vector3 = (v[1] - v[0]).cross(v[2] - v[0])
-		if test.dot(nn) < 0:
+		if test.dot(nn) > 0:
 			ordine = [0, 2, 1, 0, 3, 2]
 		for o in ordine:
 			sf.set_normal(nn)
