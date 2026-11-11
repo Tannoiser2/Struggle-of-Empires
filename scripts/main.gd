@@ -28,6 +28,10 @@ var net: Rete
 var m: Motore
 var ia: IA
 var plancia: Plancia
+var vista: Vista3D
+var vista_3d := true
+var bottone_vista: Button
+var bottone_centra: Button
 
 # partita
 var in_partita := false
@@ -176,6 +180,7 @@ func pulisci() -> void:
 		c.queue_free()
 	in_partita = false
 	plancia = null
+	vista = null
 	popup = null
 	popup_aperto = false
 
@@ -655,7 +660,17 @@ func _apri_partita() -> void:
 	schermo.add_child(plancia)
 	plancia.regione_cliccata.connect(_regione_cliccata)
 	plancia.regione_sopra.connect(_regione_sopra)
+	vista = Vista3D.new()
+	vista.m = m
+	vista.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vista.offset_top = 58
+	vista.offset_right = -600
+	schermo.add_child(vista)
+	vista.regione_cliccata.connect(_regione_cliccata)
+	vista.regione_sopra.connect(_regione_sopra)
+	_mostra_vista()
 	_costruisci_hud()
+	_mostra_vista()
 	_aggiorna_tutto()
 
 func _costruisci_hud() -> void:
@@ -692,6 +707,14 @@ func _costruisci_hud() -> void:
 					bb.button_pressed = bb == b)
 			bottoni_vel.append(b)
 			hb.add_child(b)
+	bottone_vista = bottone("Vista 2D" if vista_3d else "Vista 3D", func():
+		vista_3d = not vista_3d
+		_mostra_vista(), 18)
+	hb.add_child(bottone_vista)
+	bottone_centra = bottone("Inquadra", func():
+		if vista != null:
+			vista.inquadra_tutto(), 18)
+	hb.add_child(bottone_centra)
 	hb.add_child(bottone("Tessere", _mostra_banco, 18))
 	hb.add_child(bottone("Regole", _regole_popup, 18))
 	hb.add_child(bottone("Menu", _menu_partita, 18))
@@ -753,6 +776,32 @@ func _costruisci_hud() -> void:
 	info_regione_lbl.add_theme_font_size_override("normal_font_size", 18)
 	info_regione_lbl.add_theme_font_size_override("bold_font_size", 19)
 	info_regione.add_child(info_regione_lbl)
+
+func _mostra_vista() -> void:
+	if plancia == null or vista == null:
+		return
+	plancia.visible = not vista_3d
+	vista.visible = vista_3d
+	if bottone_vista != null:
+		bottone_vista.text = "Vista 2D" if vista_3d else "Vista 3D"
+	if bottone_centra != null:
+		bottone_centra.visible = vista_3d
+	vista.aggiorna()
+	plancia.queue_redraw()
+
+func _evidenzia(regs: Array) -> void:
+	plancia.evidenzia = regs
+	plancia.queue_redraw()
+	if vista != null:
+		vista.evidenzia = regs
+		vista.aggiorna()
+
+func _seleziona(reg: String) -> void:
+	plancia.selezionata = reg
+	plancia.queue_redraw()
+	if vista != null:
+		vista.selezionata = reg
+		vista.aggiorna()
 
 func _menu_partita() -> void:
 	var v := _apri_popup("Menu", 640)
@@ -912,8 +961,7 @@ func _aggiorna_tutto() -> void:
 		top_turno.text = "Decide: %s" % m.nome(int(r["g"]))
 	_aggiorna_giocatori()
 	_aggiorna_diario()
-	plancia.evidenzia = []
-	plancia.queue_redraw()
+	_evidenzia([])
 	if r.is_empty() or not io(int(r["g"])):
 		_mostra_attesa(r)
 	_controlla_eventi()
@@ -1148,7 +1196,7 @@ func _regione_cliccata(reg: String) -> void:
 		_decidi(str(trovate[0]["id"]))
 		return
 	opz_filtrate_reg = reg
-	plancia.selezionata = reg
+	_seleziona(reg)
 	_mostra_richiesta(r)
 
 # ---------- ciclo
@@ -1182,7 +1230,7 @@ func _process(delta: float) -> void:
 		if richiesta_mostrata != int(m.s["passo"]):
 			richiesta_mostrata = int(m.s["passo"])
 			opz_filtrate_reg = ""
-			plancia.selezionata = ""
+			_seleziona("")
 			_mostra_richiesta(r)
 	elif online and not aspetto_rete:
 		_aspetta_remoto()
@@ -1210,7 +1258,7 @@ func _decidi(id: String) -> void:
 		richiesta_mostrata = -1
 		return
 	opz_filtrate_reg = ""
-	plancia.selezionata = ""
+	_seleziona("")
 	_aggiorna_tutto()
 	if not online:
 		_salva(false)
@@ -1266,7 +1314,7 @@ func _mostra_richiesta(r: Dictionary) -> void:
 	for o in r["opz"]:
 		if o.has("reg") and not (o["reg"] in regs):
 			regs.append(o["reg"])
-	plancia.evidenzia = regs
+	_evidenzia(regs)
 	if not regs.is_empty() and r["k"] != "azione":
 		pannello_dec.add_child(etichetta("Puoi anche cliccare la regione sulla mappa.", F_CORSIVO, 17, C_SPENTO))
 	match r["k"]:
@@ -1291,7 +1339,7 @@ func _mostra_richiesta(r: Dictionary) -> void:
 	if opz_filtrate_reg != "":
 		pannello_dec.add_child(bottone("Mostra tutte le scelte", func():
 			opz_filtrate_reg = ""
-			plancia.selezionata = ""
+			_seleziona("")
 			_mostra_richiesta(r), 18))
 
 func _sezione(t: String) -> void:

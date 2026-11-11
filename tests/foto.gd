@@ -49,6 +49,11 @@ func _run():
 			if visti >= target:
 				for q in 10: await process_frame
 				await shot(modo)
+				if main.vista != null:
+					main.vista.distanza = 30.0
+					main.vista.bersaglio = Vector3(10, 0, -3)
+					main.vista._aggiorna_camera()
+					await shot(modo + "_zoom")
 				break
 		var id: String = main.ia.decidi(r)
 		await main._decidi(id)

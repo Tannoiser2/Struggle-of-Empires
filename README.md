@@ -19,7 +19,13 @@ Eagle-Gryphon Games), fatto in Godot 4.7 per la ludoteca: https://tannoiser2.git
   presenti; durante il turno si può chiedere Oro per non attaccare o pagare per non essere attaccati.
 - **Online** con gli amici (stanze con codice di 4 lettere su Firebase, ognuno sceglie la sua potenza,
   i posti vuoti li guida l'IA) e **salvataggio** della partita contro l'IA su Firebase e sul dispositivo.
-- Plancia originale (dal modulo TTS) con segnalini, unità, tracciati di punti, popolazione, round e alleanze;
+- **Tabellone in 3D** (predefinito, con pulsante per tornare al 2D): la plancia Deluxe su un tavolo, eserciti,
+  flotte, forti e alleanze locali estrusi dalle sagome dei segnalini (mezzo centimetro), segnalini Controllo,
+  neutrali, Pirati, Rivolta e rosa dei venti come counter sottili impilati, tessere nei loro spazi sul tabellone
+  (le compagnie commerciali sul tavolo a destra), cilindri e cubi per round, guerra, alleanze e popolazione,
+  meeple sul tracciato dei punti. Si sposta trascinando, si ingrandisce con rotella o pizzico, si ruota con il
+  tasto destro o girando due dita, si inclina con due dita in su e in giù.
+- Plancia 2D (dal modulo TTS) con segnalini, unità, tracciati di punti, popolazione, round e alleanze;
   segnalini neutrali e tessere dalle scansioni Deluxe; stemmi dalle plance italiane.
 - Interfaccia "carta e ceralacca" con font IM Fell English (titoli) ed EB Garamond (testi).
 
