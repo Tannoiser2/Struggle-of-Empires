@@ -8,12 +8,19 @@ extends SubViewportContainer
 
 signal regione_cliccata(reg: String)
 signal regione_sopra(reg: String)
+## clic su un pezzo, una pila, una tessera o un segnalino: chiave come "u:reg:pot:tipo", "c:reg:pot",
+## "n:reg:valore", "tessera:id", "la:id", "tok:id"; reg è la regione sotto il punto
+signal oggetto_cliccato(chiave: String, reg: String)
 
 const W := 86.0
 const H := 86.0 * 998.4 / 1800.0
 
 var m: Motore
 var evidenzia: Array = []
+## chiavi degli oggetti da illuminare (pezzi, pile, tessere da scegliere)
+var evid_oggetti: Array = []
+## oggetti cliccabili: [posizione nel mondo, chiave]
+var cliccabili: Array = []
 var selezionata := ""
 var sopra := ""
 
@@ -170,7 +177,10 @@ func _gui_input(ev: InputEvent) -> void:
 					_premuto = false
 					if _mosso < 8.0 and _tocchi.size() <= 1:
 						var r := regione_a(ev.position)
-						if r != "":
+						var ogg := oggetto_a(ev.position)
+						if ogg != "":
+							oggetto_cliccato.emit(ogg, r)
+						elif r != "":
 							regione_cliccata.emit(r)
 			MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE:
 				_ruota = ev.pressed
@@ -259,6 +269,43 @@ func regione_a(pos: Vector2) -> String:
 			best = r
 	return best
 
+## l'oggetto cliccabile più vicino al punto dello schermo (entro 30 pixel)
+func oggetto_a(pos: Vector2) -> String:
+	if cam == null:
+		return ""
+	var sc := Vector2(vp.size) / size if size.x > 0 else Vector2.ONE
+	var best := ""
+	var bd := 30.0
+	for x in cliccabili:
+		var w: Vector3 = x[0]
+		if cam.is_position_behind(w):
+			continue
+		var p: Vector2 = cam.unproject_position(w) / sc
+		var d := p.distance_to(pos)
+		if d < bd:
+			bd = d
+			best = x[1]
+	return best
+
+func _cliccabile(pos: Vector3, chiave: String, alto := 0.5) -> void:
+	cliccabili.append([pos + Vector3(0, alto, 0), chiave])
+	if chiave in evid_oggetti:
+		var mi := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 1.0
+		tm.outer_radius = 1.22
+		tm.rings = 32
+		mi.mesh = tm
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(1.0, 0.85, 0.2)
+		mat.emission_enabled = true
+		mat.emission = Color(1.0, 0.8, 0.2)
+		mat.emission_energy_multiplier = 1.6
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mi.material_override = mat
+		mi.position = Vector3(pos.x, 0.08, pos.z)
+		anelli.add_child(mi)
+
 # ============================================================ disegno
 
 func _process(delta: float) -> void:
@@ -272,7 +319,7 @@ func _process(delta: float) -> void:
 func aggiorna() -> void:
 	if m == null or m.s.is_empty() or pezzi == null:
 		return
-	var firma := str(m.s["passo"]) + "|" + str(evidenzia) + "|" + selezionata
+	var firma := str(m.s["passo"]) + "|" + str(evidenzia) + "|" + selezionata + "|" + str(evid_oggetti)
 	if firma == _ultima_firma:
 		return
 	_ultima_firma = firma
@@ -280,6 +327,7 @@ func aggiorna() -> void:
 		c.queue_free()
 	for c in anelli.get_children():
 		c.queue_free()
+	cliccabili = []
 	for reg in Dati.REGIONI:
 		_regione(reg)
 	_alleanze_locali()
@@ -324,22 +372,28 @@ func _regione(reg: String) -> void:
 	# segnalini neutrali: pile per tipo, in alto
 	var gruppi := {}
 	var ordine: Array = []
+	var chiavi := {}
 	for seg in d["n"]:
 		var k := Dati.img_neutrale(seg)
 		if not gruppi.has(k):
 			gruppi[k] = 0
 			ordine.append(k)
+			chiavi[k] = "n:%s:%s" % [reg, str(int(seg["v"])) if seg["t"] == "d" else seg["t"]]
 		gruppi[k] += 1
 	var passo := 1.55
 	var x0 := -passo * (ordine.size() - 1) / 2.0
 	for i in ordine.size():
-		_pila_counter("neutro", gruppi[ordine[i]], c + Vector3(x0 + i * passo, 0, -1.7), 1.35, ordine[i])
+		var pn := c + Vector3(x0 + i * passo, 0, -1.7)
+		_pila_counter("neutro", gruppi[ordine[i]], pn, 1.35, ordine[i])
+		_cliccabile(pn, chiavi[ordine[i]], 0.3 + 0.22 * gruppi[ordine[i]])
 	# segnalini Controllo: pile per potenza, al centro
 	var ctrl: Array = d["c"].keys()
 	ctrl.sort_custom(func(a, b): return int(d["c"][a]) > int(d["c"][b]))
 	x0 = -1.6 * (ctrl.size() - 1) / 2.0
 	for i in ctrl.size():
-		_pila_counter("controllo_" + ctrl[i], int(d["c"][ctrl[i]]), c + Vector3(x0 + i * 1.6, 0, 0), 1.35)
+		var pc := c + Vector3(x0 + i * 1.6, 0, 0)
+		_pila_counter("controllo_" + ctrl[i], int(d["c"][ctrl[i]]), pc, 1.35)
+		_cliccabile(pc, "c:%s:%s" % [reg, ctrl[i]], 0.3 + 0.22 * int(d["c"][ctrl[i]]))
 	# unità: in piedi, davanti
 	var navi_altrove := NAVI.has(reg)
 	var gruppi_u: Array = []
@@ -351,20 +405,21 @@ func _regione(reg: String) -> void:
 			if t == Motore.U_F and navi_altrove:
 				continue
 			gruppi_u.append([p, t, n])
-	_fila_unita(gruppi_u, c + Vector3(0, 0, 2.0))
+	_fila_unita(gruppi_u, c + Vector3(0, 0, 2.0), reg)
 	if navi_altrove:
 		var flotte: Array = []
 		for p in d["u"]:
 			var n2: int = int(d["u"][p][Motore.U_F])
 			if n2 > 0:
 				flotte.append([p, Motore.U_F, n2])
-		_fila_unita(flotte, pp(NAVI[reg]) + Vector3(0, 0, 0.4))
+		_fila_unita(flotte, pp(NAVI[reg]) + Vector3(0, 0, 0.4), reg)
 	# azioni segrete e blocco
 	for tok in ["pirati", "rivolta"]:
 		var st: Dictionary = m.s["segrete"][tok]
 		if st.get("reg", "") == reg:
 			var pos := c + Vector3(3.2, 0, -0.4)
 			_metti(Pezzi3D.pezzo(tok, 1.8, 0.22, true), pos)
+			_cliccabile(pos, "s:%s:%s" % [reg, tok], 0.5)
 			_metti(Pezzi3D.pezzo("controllo_" + st["pot"], 1.0, 0.22, true), pos + Vector3(0, 0.24, 0))
 	var bl: Dictionary = m.s["blocco"]
 	if bl.get("reg", "") == reg:
@@ -373,7 +428,7 @@ func _regione(reg: String) -> void:
 		_metti(Pezzi3D.pezzo("controllo_" + bl["pot"], 1.0, 0.22, true), c + Vector3(-3.4, 0.14, -0.4))
 
 ## dispone in fila le unità (gruppi [pot, tipo, quante]); oltre 4 dello stesso tipo mostra il numero
-func _fila_unita(gruppi_u: Array, centro: Vector3) -> void:
+func _fila_unita(gruppi_u: Array, centro: Vector3, reg: String) -> void:
 	if gruppi_u.is_empty():
 		return
 	var larghezze := {Motore.U_E: 0.95, Motore.U_F: 1.7, Motore.U_FO: 1.25}
@@ -398,10 +453,12 @@ func _fila_unita(gruppi_u: Array, centro: Vector3) -> void:
 			_metti(p, centro + Vector3(x + w2 / 2.0 + k * float(b[3]), 0, dz))
 		if int(gr[2]) > int(b[1]):
 			_etichetta(str(gr[2]), centro + Vector3(x + float(b[4]) / 2.0, 2.6, 0))
+		_cliccabile(centro + Vector3(x + float(b[4]) / 2.0, 0, 0.15), "u:%s:%s:%d" % [reg, gr[0], int(gr[1])], 1.0)
 		x += float(b[4]) + 0.45
 
 func _alleanze_locali() -> void:
 	for la in Dati.ALLEANZE:
+		_cliccabile(pf(Dati.ALLEANZE[la]["pos"]), "la:" + la, 0.4)
 		var p: String = m.s["locali"].get(la, "")
 		if p != "":
 			var pz := Pezzi3D.pezzo("alleanza_" + p, 1.6, 0.5)
@@ -469,6 +526,7 @@ func _tessere() -> void:
 				ts.rotation.y = PI / 2.0
 			ts.position.y = k * 0.12
 			_metti(ts, centro)
+		_cliccabile(centro, "tessera:" + t, mini(n, 8) * 0.12 + 0.2)
 		if n > 1:
 			_etichetta(str(n), centro + Vector3(0, mini(n, 8) * 0.12 + 0.7, 0), 56)
 	# compagnie commerciali: sul tavolo a destra della plancia
@@ -483,12 +541,15 @@ func _tessere() -> void:
 			var ts2 := Pezzi3D.tessera("res://assets/tessere/%s.jpg" % Dati.TESSERE[t]["img"], 5.4, 3.9, 0.12)
 			ts2.position.y = k * 0.12
 			_metti(ts2, pos)
+		if n2 > 0:
+			_cliccabile(pos, "tessera:" + t, n2 * 0.12 + 0.2)
 		if n2 > 1:
 			_etichetta(str(n2), pos + Vector3(0, n2 * 0.12 + 0.7, 0), 56)
 	# segnalini delle azioni segrete ancora disponibili
 	for tok in ["pirati", "rivolta"]:
 		if m.s["segrete"][tok].is_empty():
 			_metti(Pezzi3D.pezzo(tok, 1.9, 0.22, true), pp(POS_PIRATI if tok == "pirati" else POS_RIVOLTA))
+			_cliccabile(pp(POS_PIRATI if tok == "pirati" else POS_RIVOLTA), "tok:" + tok, 0.4)
 
 func _anello(reg: String, col: Color, r: float) -> void:
 	var mi := MeshInstance3D.new()

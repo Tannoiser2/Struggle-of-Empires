@@ -68,6 +68,9 @@ var popup: Control
 var notifica: PanelContainer
 var bottoni_vel: Array = []
 var opz_filtrate_reg := ""
+## scelte in sequenza decise con un solo clic sulla mappa: [[tipo di richiesta, scelta], ...]
+var piano: Array = []
+var piano_in_corso := false
 
 # online
 var on_nome: LineEdit
@@ -660,6 +663,7 @@ func _apri_partita() -> void:
 	schermo.add_child(plancia)
 	plancia.regione_cliccata.connect(_regione_cliccata)
 	plancia.regione_sopra.connect(_regione_sopra)
+	plancia.oggetto_cliccato.connect(_oggetto_cliccato)
 	vista = Vista3D.new()
 	vista.m = m
 	vista.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -668,6 +672,7 @@ func _apri_partita() -> void:
 	schermo.add_child(vista)
 	vista.regione_cliccata.connect(_regione_cliccata)
 	vista.regione_sopra.connect(_regione_sopra)
+	vista.oggetto_cliccato.connect(_oggetto_cliccato)
 	_mostra_vista()
 	_costruisci_hud()
 	_mostra_vista()
@@ -789,11 +794,13 @@ func _mostra_vista() -> void:
 	vista.aggiorna()
 	plancia.queue_redraw()
 
-func _evidenzia(regs: Array) -> void:
+func _evidenzia(regs: Array, oggetti: Array = []) -> void:
 	plancia.evidenzia = regs
+	plancia.evid_oggetti = oggetti
 	plancia.queue_redraw()
 	if vista != null:
 		vista.evidenzia = regs
+		vista.evid_oggetti = oggetti
 		vista.aggiorna()
 
 func _seleziona(reg: String) -> void:
@@ -1182,6 +1189,162 @@ func _testo_regione(reg: String) -> String:
 			t += "\nAlleanza locale %s: %s" % [Dati.ALLEANZE[la]["nome"], "libera" if chi == "" else m.nome_pot(chi)]
 	return t
 
+# ---------- scelte fatte cliccando i pezzi sulla mappa
+
+func _oggetti_da_evidenziare(r: Dictionary) -> Array:
+	var out: Array = []
+	var me := m.pot(int(r["g"]))
+	for o in r["opz"]:
+		var id := str(o["id"])
+		match r["k"]:
+			"muovi_da":
+				if "|" in id:
+					out.append("u:%s:%s:%d" % [id.get_slice("|", 0), me, Motore.SIGLA_U.find(id.get_slice("|", 1))])
+			"att_bers":
+				var reg: String = str(o.get("reg", ""))
+				out.append(_chiave_bersaglio(reg, id))
+			"tessera":
+				out.append("tessera:" + id)
+			"alleanza":
+				out.append("la:" + id)
+			"segreta":
+				out.append("tok:" + id)
+			"segreta_bers":
+				if "|" in id:
+					out.append("c:%s:%s" % [id.get_slice("|", 0), id.get_slice("|", 1)])
+			"colonizza":
+				out.append("n:%s:col" % str(o.get("reg", "")))
+			"commercio":
+				out.append("n:%s:gcc" % str(o.get("reg", "")))
+	return out
+
+func _chiave_bersaglio(reg: String, id: String) -> String:
+	var t := id.get_slice("|", 0)
+	var x := id.get_slice("|", 1)
+	match t:
+		"c":
+			return "c:%s:%s" % [reg, x]
+		"s":
+			return "s:%s:%s" % [reg, x]
+		"f":
+			return "u:%s:%s:%d" % [reg, x, Motore.U_F]
+		"n":
+			for seg in m.s["reg"][reg]["n"]:
+				if int(seg["id"]) == int(x):
+					return "n:%s:%d" % [reg, int(seg["v"])]
+	return ""
+
+## trova la scelta della richiesta che corrisponde a una specifica del piano
+func _risolvi(r: Dictionary, spec: String) -> String:
+	if spec.begins_with("="):
+		var id := spec.substr(1)
+		return id if _ha_opzione(r, id) else ""
+	if spec.begins_with("reg:"):
+		var reg := spec.substr(4)
+		for o in r["opz"]:
+			if str(o.get("reg", "")) == reg:
+				return str(o["id"])
+	if spec.begins_with("chiave:"):
+		var ch := spec.substr(7)
+		for o in r["opz"]:
+			var reg2: String = str(o.get("reg", ""))
+			if _chiave_bersaglio(reg2, str(o["id"])) == ch:
+				return str(o["id"])
+	return ""
+
+func _avanza_piano() -> void:
+	if piano_in_corso:
+		return
+	piano_in_corso = true
+	while not piano.is_empty():
+		var r := m.richiesta()
+		if r.is_empty() or not io(int(r["g"])) or r["k"] != piano[0][0]:
+			break
+		var id := _risolvi(r, str(piano[0][1]))
+		piano.pop_front()
+		if id == "":
+			piano.clear()
+			break
+		await _decidi(id)
+	piano.clear()
+	piano_in_corso = false
+	richiesta_mostrata = -1
+
+func _oggetto_cliccato(chiave: String, reg: String) -> void:
+	var r := m.richiesta()
+	if r.is_empty() or not io(int(r["g"])) or piano_in_corso:
+		return
+	var i := int(r["g"])
+	var me := m.pot(i)
+	var parti := chiave.split(":")
+	var tipo := parti[0]
+	var nuovo: Array = []
+	match r["k"]:
+		"azione":
+			nuovo = _piano_da_azione(r, parti)
+		"muovi_da":
+			if tipo == "u" and parti[2] == me:
+				nuovo = [["muovi_da", "=%s|%s" % [parti[1], Motore.SIGLA_U[int(parti[3])]]]]
+		"att_reg":
+			if tipo in ["c", "n", "s", "u"]:
+				nuovo = [["att_reg", "=" + parti[1]], ["att_bers", "chiave:" + chiave]]
+		"att_bers":
+			nuovo = [["att_bers", "chiave:" + chiave]]
+		"tessera":
+			if tipo == "tessera":
+				nuovo = [["tessera", "=" + parti[1]]]
+		"alleanza":
+			if tipo == "la":
+				nuovo = [["alleanza", "=" + parti[1]]]
+		"colonizza", "commercio":
+			if tipo == "n":
+				nuovo = [[r["k"], "reg:" + parti[1]]]
+		"segreta":
+			if tipo == "tok":
+				nuovo = [["segreta", "=" + parti[1]]]
+		"segreta_bers":
+			if tipo == "c":
+				nuovo = [["segreta_bers", "=%s|%s" % [parti[1], parti[2]]]]
+	if nuovo.is_empty():
+		if reg != "":
+			_regione_cliccata(reg)
+		return
+	piano = nuovo
+	_avanza_piano()
+
+func _piano_da_azione(r: Dictionary, parti: PackedStringArray) -> Array:
+	var i := int(r["g"])
+	var me := m.pot(i)
+	var tipo := parti[0]
+	match tipo:
+		"u":
+			if parti[2] == me:
+				var key := "%s|%s" % [parti[1], Motore.SIGLA_U[int(parti[3])]]
+				if _ha_opzione(r, "muovi") and key in m.gruppi_mobili(i, []):
+					return [["azione", "=muovi"], ["muovi_da", "=" + key]]
+			elif _ha_opzione(r, "attacca"):
+				return [["azione", "=attacca"], ["att_reg", "=" + parti[1]], ["att_bers", "chiave:c:%s:%s" % [parti[1], parti[2]]]]
+		"c", "s":
+			if _ha_opzione(r, "attacca") and not (tipo == "c" and parti[2] == me):
+				return [["azione", "=attacca"], ["att_reg", "=" + parti[1]], ["att_bers", "chiave:" + ":".join(parti)]]
+		"n":
+			if parti[2] == "col" and _ha_opzione(r, "colonizza"):
+				return [["azione", "=colonizza"], ["colonizza", "reg:" + parti[1]]]
+			if parti[2] == "gcc" and _ha_opzione(r, "commercio"):
+				return [["azione", "=commercio"], ["commercio", "reg:" + parti[1]]]
+			if parti[2].is_valid_int() and _ha_opzione(r, "attacca"):
+				return [["azione", "=attacca"], ["att_reg", "=" + parti[1]], ["att_bers", "chiave:" + ":".join(parti)]]
+		"tessera":
+			if _ha_opzione(r, "tessera") and parti[1] in m.tessere_prendibili(i):
+				return [["azione", "=tessera"], ["tessera", "=" + parti[1]]]
+		"la":
+			if _ha_opzione(r, "alleanza") and parti[1] in m.alleanze_disponibili(i):
+				return [["azione", "=alleanza"], ["alleanza", "=" + parti[1]]]
+		"tok":
+			if _ha_opzione(r, "segreta") and parti[1] in m.segrete_disponibili(i):
+				return [["azione", "=segreta"], ["segreta", "=" + parti[1]]]
+	return []
+
 func _regione_cliccata(reg: String) -> void:
 	var r := m.richiesta()
 	if r.is_empty() or not io(int(r["g"])):
@@ -1314,7 +1477,7 @@ func _mostra_richiesta(r: Dictionary) -> void:
 	for o in r["opz"]:
 		if o.has("reg") and not (o["reg"] in regs):
 			regs.append(o["reg"])
-	_evidenzia(regs)
+	_evidenzia(regs, _oggetti_da_evidenziare(r))
 	if not regs.is_empty() and r["k"] != "azione":
 		pannello_dec.add_child(etichetta("Puoi anche cliccare la regione sulla mappa.", F_CORSIVO, 17, C_SPENTO))
 	match r["k"]:
@@ -1347,6 +1510,7 @@ func _sezione(t: String) -> void:
 	pannello_dec.add_child(l)
 
 func _widget_azione(r: Dictionary) -> void:
+	pannello_dec.add_child(etichetta("Anche sulla mappa: clicca un tuo pezzo per muoverlo, un segnalino nemico o neutrale per attaccarlo, un segnalino Colonizzare o Costa d'Oro per convertirlo, una tessera per reclamarla, uno spazio di Alleanza Locale per stipularla.", F_CORSIVO, 17, C_SPENTO))
 	var cats := {"reg": "Azioni regolari", "spec": "Azioni speciali (una per turno)", "lib": "Azioni gratuite (tessere)", "tratt": "Trattative", "fine": ""}
 	for cat in ["reg", "spec", "lib", "tratt", "fine"]:
 		var opz: Array = []

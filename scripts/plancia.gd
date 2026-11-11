@@ -6,6 +6,7 @@ extends Control
 
 signal regione_cliccata(reg: String)
 signal regione_sopra(reg: String)
+signal oggetto_cliccato(chiave: String, reg: String)
 
 var m: Motore
 var tex_plancia: Texture2D
@@ -13,6 +14,9 @@ var tex := {}
 var font: Font
 var font_titoli: Font
 var evidenzia: Array = []
+var evid_oggetti: Array = []
+## [rettangolo sullo schermo, chiave]
+var cliccabili: Array = []
 var selezionata := ""
 var sopra := ""
 var zoom := 1.0
@@ -41,7 +45,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	tempo += delta
-	if not evidenzia.is_empty():
+	if not evidenzia.is_empty() or not evid_oggetti.is_empty():
 		queue_redraw()
 
 ## rettangolo dove si disegna il tabellone (adattato e con zoom)
@@ -91,7 +95,10 @@ func _gui_input(ev: InputEvent) -> void:
 				_trascina = false
 				if _trascinato < 8.0:
 					var r := regione_a(ev.position)
-					if r != "":
+					var ogg := oggetto_a(ev.position)
+					if ogg != "":
+						oggetto_cliccato.emit(ogg, r)
+					elif r != "":
 						regione_cliccata.emit(r)
 	elif ev is InputEventMouseMotion:
 		if _trascina and _tocchi.size() < 2:
@@ -128,6 +135,18 @@ func _gui_input(ev: InputEvent) -> void:
 	elif ev is InputEventMagnifyGesture:
 		zooma(ev.factor, ev.position)
 
+func oggetto_a(pos: Vector2) -> String:
+	for x in cliccabili:
+		if (x[0] as Rect2).grow(3).has_point(pos):
+			return x[1]
+	return ""
+
+func _cliccabile(r: Rect2, chiave: String) -> void:
+	cliccabili.append([r, chiave])
+	if chiave in evid_oggetti:
+		var puls := 0.55 + 0.45 * sin(tempo * 4.0)
+		draw_rect(r.grow(3), Color(1.0, 0.82, 0.25, 0.5 + 0.4 * puls), false, 3.0)
+
 func regione_a(pos: Vector2) -> String:
 	var best := ""
 	var bd := 70.0 * scala()
@@ -149,6 +168,7 @@ func _draw() -> void:
 	if m == null or m.s.is_empty():
 		return
 	var sc := scala()
+	cliccabili = []
 	_disegna_tracciati(sc)
 	for la in Dati.ALLEANZE:
 		_disegna_alleanza(la, sc)
@@ -193,11 +213,13 @@ func _disegna_regione(reg: String, sc: float) -> void:
 	var righe: Array = []
 	var gruppi := {}
 	var ordine: Array = []
+	var chiavi := {}
 	for seg in d["n"]:
 		var k := Dati.img_neutrale(seg)
 		if not gruppi.has(k):
 			gruppi[k] = 0
 			ordine.append(k)
+			chiavi[k] = "n:%s:%s" % [reg, str(int(seg["v"])) if seg["t"] == "d" else seg["t"]]
 		gruppi[k] += 1
 	var wn := 33.0 * sc
 	var wc := 32.0 * sc
@@ -240,13 +262,16 @@ func _disegna_regione(reg: String, sc: float) -> void:
 			match rg["t"]:
 				"n":
 					draw_texture_rect(_tex(it), Rect2(x, y, w, w * 1.08), false)
+					_cliccabile(Rect2(x, y, w, w * 1.08), chiavi[it])
 					_numero(Vector2(x + w - 1.0 * sc, y + w * 0.95), gruppi[it], sc)
 				"c":
 					draw_texture_rect(tex["controllo_" + it], Rect2(x, y, w, w), false)
+					_cliccabile(Rect2(x, y, w, w), "c:%s:%s" % [reg, it])
 					_numero(Vector2(x + w - 1.0 * sc, y + w - 2.0 * sc), int(d["c"][it]), sc)
 				"u":
 					var k: String = ["esercito", "flotta", "forte"][it[1]] + "_" + it[0]
 					draw_texture_rect(tex[k], Rect2(x, y, w, w), false)
+					_cliccabile(Rect2(x, y, w, w), "u:%s:%s:%d" % [reg, it[0], int(it[1])])
 					_numero(Vector2(x + w - 1.0 * sc, y + w - 2.0 * sc), int(it[2]), sc)
 			x += w + gap
 		y += float(rg["h"]) + 4.0 * sc
@@ -256,6 +281,7 @@ func _disegna_regione(reg: String, sc: float) -> void:
 		if st.get("reg", "") == reg:
 			var rr := Rect2(lastra.end.x + 4.0 * sc, c.y - 26.0 * sc, 34.0 * sc, 50.0 * sc)
 			draw_texture_rect(tex[tok], rr, false)
+			_cliccabile(rr, "s:%s:%s" % [reg, tok])
 			draw_texture_rect(tex["controllo_" + st["pot"]], Rect2(rr.position + Vector2(6, 28) * sc, Vector2(22, 22) * sc), false)
 	var bl: Dictionary = m.s["blocco"]
 	if bl.get("reg", "") == reg:
@@ -270,6 +296,7 @@ func _disegna_alleanza(la: String, sc: float) -> void:
 	var h := 38.0 * sc
 	var rr := Rect2(c - Vector2(w, h) / 2.0, Vector2(w, h))
 	draw_texture_rect(tex["la_" + la], rr, false, Color(1, 1, 1, 1.0 if p != "" else 0.55))
+	_cliccabile(rr, "la:" + la)
 	if p != "":
 		draw_texture_rect(tex["controllo_" + p], Rect2(c + Vector2(-11, 4) * sc, Vector2(22, 22) * sc), false)
 
