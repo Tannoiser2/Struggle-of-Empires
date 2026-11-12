@@ -675,7 +675,7 @@ func _contorno(reg: String, col: Color, largo: float, velo: float) -> void:
 	var fill := SurfaceTool.new()
 	fill.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var ha_fill := false
-	var y := 0.07
+	var y := 0.14
 	for poly in polys:
 		var pts: Array = []
 		for q in poly:
@@ -699,7 +699,7 @@ func _contorno(reg: String, col: Color, largo: float, velo: float) -> void:
 		var tri := Geometry2D.triangulate_polygon(PackedVector2Array(pts))
 		for t in tri:
 			var p2: Vector2 = pts[t]
-			fill.add_vertex(Vector3(p2.x, y - 0.01, p2.y))
+			fill.add_vertex(Vector3(p2.x, y - 0.03, p2.y))
 			ha_fill = true
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = col

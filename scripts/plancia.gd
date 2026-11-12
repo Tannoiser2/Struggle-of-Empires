@@ -49,7 +49,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	tempo += delta
-	if not evidenzia.is_empty() or not evid_oggetti.is_empty() or not battaglia.is_empty() or not viaggio.is_empty():
+	if not battaglia.is_empty() or not viaggio.is_empty():
 		queue_redraw()
 
 ## rettangolo dove si disegna il tabellone (adattato e con zoom)
@@ -148,8 +148,7 @@ func oggetto_a(pos: Vector2) -> String:
 func _cliccabile(r: Rect2, chiave: String) -> void:
 	cliccabili.append([r, chiave])
 	if chiave in evid_oggetti:
-		var puls := 0.55 + 0.45 * sin(tempo * 4.0)
-		draw_rect(r.grow(3), Color(1.0, 0.82, 0.25, 0.5 + 0.4 * puls), false, 3.0)
+		draw_rect(r.grow(3), Color(1.0, 0.82, 0.25, 0.95), false, 3.0)
 
 func regione_a(pos: Vector2) -> String:
 	var r0 := area()
@@ -183,10 +182,9 @@ func _draw() -> void:
 	for reg in Dati.REGIONI:
 		_disegna_regione(reg, sc)
 	# regioni da scegliere
-	var puls := 0.55 + 0.45 * sin(tempo * 4.0)
 	for reg in evidenzia:
 		if reg != selezionata:
-			_contorno(reg, Color(1.0, 0.85, 0.3, 0.55 + 0.4 * puls), 4.0 * sc, 0.12 + 0.06 * puls)
+			_contorno(reg, Color(1.0, 0.85, 0.3, 0.95), 4.0 * sc, 0.15)
 	if selezionata != "":
 		_contorno(selezionata, Color(0.8, 0.1, 0.06, 0.95), 5.0 * sc, 0.18)
 	if not battaglia.is_empty():
