@@ -1660,6 +1660,63 @@ func forza_terra(lato: String) -> int:
 		f += 2 if cb["blocco"] else 1
 	return f
 
+## per mostrare la battaglia: da che cosa nasce la forza di un lato e quali unità sono coinvolte.
+## {"parti": ["Francia: 2 Eserciti", "Supporto navale +1", ...], "unita": [[pot, tipo, quante], ...]}
+func composizione(lato: String, dominio: String) -> Dictionary:
+	var cb: Dictionary = s["cb"]
+	var parti: Array = []
+	var unita: Array = []
+	var reg: String = cb["reg"] if dominio == "t" else cb["mare"]
+	var princ: String = cb["apot"] if lato == "a" else cb["dpot"]
+	var altro: String = cb["dpot"] if lato == "a" else cb["apot"]
+	var tu := U_E if dominio == "t" else U_F
+	if lato == "a" and cb["tipo"] == "x":
+		parti.append("%s: forza %d" % ["Pirati" if cb["segreta"] == "pirati" else "Rivolta", Dati.FORZA_SEGRETA[cb["segreta"]]])
+		return {"parti": parti, "unita": unita}
+	if lato == "d" and cb["tipo"] == "n":
+		parti.append("Segnalino neutrale: difesa %d" % int(cb["val"]))
+		return {"parti": parti, "unita": unita}
+	if lato == "d" and cb["tipo"] == "s":
+		parti.append("Segnalino %s: difesa %d" % ["Pirati" if str(cb["id"]).ends_with("pirati") else "Rivolta", int(cb["val"])])
+		return {"parti": parti, "unita": unita}
+	if princ == "":
+		return {"parti": parti, "unita": unita}
+	if lato == "d" and gioc_di(princ) < 0 and dominio == "t":
+		parti.append("Controllo di %s (non giocante): difesa 3" % nome_pot(princ))
+	else:
+		var n := u(reg, princ, tu) if gioc_di(princ) >= 0 else 0
+		if n > 0:
+			parti.append("%s: %d %s" % [nome_pot(princ), n, (NOMI_U_PL[tu] if n > 1 else NOMI_U[tu])])
+			unita.append([princ, tu, n])
+		if dominio == "t" and lato == "d" and u(reg, princ, U_FO) > 0:
+			var nf := u(reg, princ, U_FO)
+			parti.append("%d Fort%s +%d" % [nf, "e" if nf == 1 else "i", 2 * nf])
+			unita.append([princ, U_FO, nf])
+	if cb["tipo"] != "x":
+		for j in cb["all_" + lato]:
+			var x: Array = cb["all_" + lato][j]
+			var k := int(x[0]) if dominio == "t" else int(x[1])
+			if k > 0:
+				parti.append("%s (alleato): %d %s" % [nome(int(j)), k, (NOMI_U_PL[tu] if k > 1 else NOMI_U[tu])])
+				unita.append([pot(int(j)), tu, k])
+		if alleanza(princ) != "" and cb["tipo"] != "n" and cb["tipo"] != "s":
+			for q in s["np_pot"]:
+				if q != princ and alleati(princ, q) and u(reg, q, tu) > 0:
+					parti.append("%s (non giocante): %d" % [nome_pot(q), u(reg, q, tu)])
+					unita.append([q, tu, u(reg, q, tu)])
+	var tess := "addestr_esercito" if dominio == "t" else "addestr_navale"
+	var presente := u(reg, princ, tu) > 0 or (dominio == "t" and lato == "d" and u(reg, princ, U_FO) > 0)
+	if presente and gioc_di(princ) >= 0 and conta_tessere_pot(princ, tess) > (conta_tessere_pot(altro, tess) if altro != "" else 0):
+		parti.append("Addestramento %s +1" % ("esercito" if dominio == "t" else "navale"))
+	var la := _la_lato(lato, dominio)
+	if la > 0:
+		parti.append("Alleanza Locale +%d" % la)
+	if dominio == "t" and cb["nav"] == lato:
+		parti.append("Supporto navale +%d" % (2 if cb["blocco"] else 1))
+	if parti.is_empty() and princ != "":
+		parti.append("%s: nessuna unità, solo il segnalino Controllo (forza 0)" % nome_pot(princ))
+	return {"parti": parti, "unita": unita}
+
 # ------------------------------------------------------------ fase navale
 
 func _fase_navale() -> void:
@@ -1772,7 +1829,8 @@ func _tiro(dominio: String) -> void:
 	var a2 := rng.randi_range(1, 6)
 	var d1 := rng.randi_range(1, 6)
 	var d2 := rng.randi_range(1, 6)
-	cb["tiro"] = {"dom": dominio, "fa": fa, "fd": fd, "a": [a1, a2], "d": [d1, d2], "ta": fa + absi(a1 - a2), "td": fd + absi(d1 - d2), "riserve": []}
+	cb["tiro"] = {"dom": dominio, "fa": fa, "fd": fd, "a": [a1, a2], "d": [d1, d2], "ta": fa + absi(a1 - a2), "td": fd + absi(d1 - d2), "riserve": [],
+		"comp": {"a": composizione("a", dominio), "d": composizione("d", dominio)}}
 	_log("%s: attaccante %d + dadi %d-%d = %d; difensore %d + dadi %d-%d = %d." % ["Battaglia navale" if dominio == "n" else "Battaglia terrestre",
 		fa, a1, a2, fa + absi(a1 - a2), fd, d1, d2, fd + absi(d1 - d2)])
 	cb["fase"] = "nav_riserve" if dominio == "n" else "ter_riserve"
@@ -1824,7 +1882,7 @@ func _esito(dominio: String) -> void:
 	var sette_a: bool = int(tr["a"][0]) + int(tr["a"][1]) == 7
 	var sette_d: bool = int(tr["d"][0]) + int(tr["d"][1]) == 7
 	var vince := "a" if ta > td else ("d" if td > ta else "")
-	var riga := {"dom": dominio, "fa": tr["fa"], "fd": tr["fd"], "a": tr["a"], "d": tr["d"], "ta": ta, "td": td, "vince": vince, "perdite": []}
+	var riga := {"dom": dominio, "fa": tr["fa"], "fd": tr["fd"], "a": tr["a"], "d": tr["d"], "ta": ta, "td": td, "vince": vince, "perdite": [], "comp": tr.get("comp", {})}
 	cb["rapporto"].append(riga)
 	cb["perdite_correnti"] = riga["perdite"]
 	# Ritirata combattendo: il difensore sconfitto evita tutte le perdite del suo lato
@@ -1847,7 +1905,7 @@ func _dec_ritirata(j: int, o: Dictionary, r: Dictionary) -> void:
 		_log("%s ripiega combattendo: nessuna perdita per il suo schieramento." % nome(j))
 	var cb: Dictionary = s["cb"]
 	var tr: Dictionary = cb["tiro"]
-	var riga := {"dom": r["dom"], "fa": tr["fa"], "fd": tr["fd"], "a": tr["a"], "d": tr["d"], "ta": tr["ta"], "td": tr["td"], "vince": r["vince"], "perdite": []}
+	var riga := {"dom": r["dom"], "fa": tr["fa"], "fd": tr["fd"], "a": tr["a"], "d": tr["d"], "ta": tr["ta"], "td": tr["td"], "vince": r["vince"], "perdite": [], "comp": tr.get("comp", {})}
 	cb["rapporto"].append(riga)
 	cb["perdite_correnti"] = riga["perdite"]
 	_applica_esito(str(r["dom"]), str(r["vince"]), bool(r["sette_a"]), bool(r["sette_d"]), evita)

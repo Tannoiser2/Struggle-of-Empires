@@ -27,6 +27,10 @@ var _ultimo := Vector2.ZERO
 var _tocchi := {}
 var _dist_pizzico := 0.0
 var tempo := 0.0
+var velocita := 1.0
+## battaglia o viaggio mostrati sopra la mappa
+var battaglia := {}
+var viaggio := {}
 
 func _ready() -> void:
 	clip_contents = true
@@ -45,7 +49,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	tempo += delta
-	if not evidenzia.is_empty() or not evid_oggetti.is_empty():
+	if not evidenzia.is_empty() or not evid_oggetti.is_empty() or not battaglia.is_empty() or not viaggio.is_empty():
 		queue_redraw()
 
 ## rettangolo dove si disegna il tabellone (adattato e con zoom)
@@ -183,6 +187,10 @@ func _draw() -> void:
 	if selezionata != "":
 		var c2 := a_schermo(Dati.REGIONI[selezionata]["pos"])
 		draw_arc(c2, 50.0 * sc, 0, TAU, 48, Color(0.75, 0.1, 0.08, 0.9), 4.0 * sc, true)
+	if not battaglia.is_empty():
+		_disegna_battaglia()
+	if not viaggio.is_empty():
+		_disegna_viaggio()
 	if sopra != "":
 		var c3 := a_schermo(Dati.REGIONI[sopra]["pos"])
 		draw_arc(c3, 44.0 * sc, 0, TAU, 40, Color(1, 1, 1, 0.35), 2.0 * sc, true)
@@ -356,3 +364,133 @@ func _disegna_tracciati(sc: float) -> void:
 		for k in arr3.size():
 			var off2 := Vector2((k % 3) - 1, (k / 3)) * 8.0 * sc
 			_disco(cpv + off2, arr3[k], 7.0 * sc)
+
+
+# ============================================================ battaglie e dadi sulla mappa
+
+func _attendi(sec: float) -> void:
+	await get_tree().create_timer(sec / maxf(velocita, 0.5)).timeout
+
+func mostra_battaglia(cb: Dictionary) -> void:
+	var reg: String = cb.get("reg", "")
+	if not Dati.REGIONI.has(reg):
+		return
+	for riga in cb.get("rapporto", []):
+		battaglia = {"reg": reg, "riga": riga, "t0": tempo}
+		queue_redraw()
+		await _attendi(1.0)
+		battaglia["lancio"] = tempo
+		await _attendi(1.3)
+		battaglia["fermi"] = true
+		queue_redraw()
+		await _attendi(2.2)
+	battaglia = {}
+	queue_redraw()
+
+func mostra_viaggio(ev: Dictionary) -> void:
+	if not Dati.REGIONI.has(str(ev.get("da", ""))):
+		return
+	viaggio = {"ev": ev, "t0": tempo}
+	await _attendi(1.2)
+	viaggio["fermo"] = true
+	await _attendi(1.4)
+	viaggio = {}
+	queue_redraw()
+
+func _dado2d(r: Rect2, v: int, rosso: bool) -> void:
+	var fondo := Color(0.72, 0.09, 0.07) if rosso else Color(0.96, 0.93, 0.85)
+	var punto := Color(0.98, 0.95, 0.9) if rosso else Color(0.1, 0.07, 0.05)
+	draw_rect(r, fondo)
+	draw_rect(r, Color(0, 0, 0, 0.7), false, 2.0)
+	var pos := {1: [Vector2(0.5, 0.5)], 2: [Vector2(0.27, 0.27), Vector2(0.73, 0.73)],
+		3: [Vector2(0.25, 0.25), Vector2(0.5, 0.5), Vector2(0.75, 0.75)],
+		4: [Vector2(0.27, 0.27), Vector2(0.73, 0.27), Vector2(0.27, 0.73), Vector2(0.73, 0.73)],
+		5: [Vector2(0.25, 0.25), Vector2(0.75, 0.25), Vector2(0.5, 0.5), Vector2(0.25, 0.75), Vector2(0.75, 0.75)],
+		6: [Vector2(0.27, 0.22), Vector2(0.73, 0.22), Vector2(0.27, 0.5), Vector2(0.73, 0.5), Vector2(0.27, 0.78), Vector2(0.73, 0.78)]}
+	for q in pos[clampi(v, 1, 6)]:
+		draw_circle(r.position + q * r.size, r.size.x * 0.09, punto)
+
+func _riquadro(centro: Vector2, dim: Vector2) -> Rect2:
+	var r := Rect2(centro + Vector2(40, -dim.y / 2.0), dim)
+	if r.end.x > size.x - 8:
+		r.position.x = centro.x - 40 - dim.x
+	r.position.x = clampf(r.position.x, 8, maxf(8, size.x - dim.x - 8))
+	r.position.y = clampf(r.position.y, 8, maxf(8, size.y - dim.y - 8))
+	return r
+
+func _disegna_battaglia() -> void:
+	var riga: Dictionary = battaglia["riga"]
+	var c := a_schermo(Dati.REGIONI[battaglia["reg"]]["pos"])
+	var comp: Dictionary = riga.get("comp", {})
+	var pa: Array = comp.get("a", {}).get("parti", [])
+	var pd: Array = comp.get("d", {}).get("parti", [])
+	var righe := maxi(pa.size(), pd.size())
+	var dim := Vector2(620, 150 + 24 * righe + 120)
+	var r := _riquadro(c, dim)
+	# freccia verso la regione
+	draw_line(c, Vector2(clampf(c.x, r.position.x, r.end.x), clampf(c.y, r.position.y, r.end.y)), Color(0.55, 0.1, 0.06), 4.0, true)
+	draw_circle(c, 9, Color(0.55, 0.1, 0.06))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.96, 0.91, 0.78, 0.97)
+	sb.border_color = Color(0.55, 0.1, 0.06)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(10)
+	draw_style_box(sb, r)
+	var x0 := r.position.x + 18
+	var y := r.position.y + 36
+	var tit := "Battaglia navale" if riga["dom"] == "n" else "Battaglia terrestre"
+	draw_string(font_titoli, Vector2(x0, y), tit + " - " + str(Dati.REGIONI[battaglia["reg"]]["nome"]), HORIZONTAL_ALIGNMENT_LEFT, dim.x - 36, 26, Color(0.55, 0.1, 0.06))
+	y += 34
+	var rossa := Color(0.62, 0.1, 0.07)
+	var blu := Color(0.12, 0.25, 0.55)
+	var col_w := (dim.x - 54) / 2.0
+	draw_string(font, Vector2(x0, y), "ATTACCANTE (forza %d)" % int(riga["fa"]), HORIZONTAL_ALIGNMENT_LEFT, col_w, 20, rossa)
+	draw_string(font, Vector2(x0 + col_w + 18, y), "DIFENSORE (forza %d)" % int(riga["fd"]), HORIZONTAL_ALIGNMENT_LEFT, col_w, 20, blu)
+	for k in righe:
+		y += 24
+		if k < pa.size():
+			draw_string(font, Vector2(x0, y), str(pa[k]), HORIZONTAL_ALIGNMENT_LEFT, col_w, 18, Color(0.2, 0.13, 0.07))
+		if k < pd.size():
+			draw_string(font, Vector2(x0 + col_w + 18, y), str(pd[k]), HORIZONTAL_ALIGNMENT_LEFT, col_w, 18, Color(0.2, 0.13, 0.07))
+	if not battaglia.has("lancio"):
+		return
+	y += 22
+	var fermi: bool = battaglia.get("fermi", false)
+	var dadi_a: Array = riga["a"]
+	var dadi_d: Array = riga["d"]
+	var lato := 46.0
+	for k in 2:
+		var va: int = int(dadi_a[k]) if fermi else (int(tempo * 13.0 + k * 3) % 6) + 1
+		var vd: int = int(dadi_d[k]) if fermi else (int(tempo * 11.0 + k * 5 + 2) % 6) + 1
+		var scuoti := Vector2.ZERO if fermi else Vector2(sin(tempo * 40.0 + k) * 4, cos(tempo * 37.0 + k) * 4)
+		_dado2d(Rect2(Vector2(x0 + k * (lato + 10), y) + scuoti, Vector2(lato, lato)), va, true)
+		_dado2d(Rect2(Vector2(x0 + col_w + 18 + k * (lato + 10), y) - scuoti, Vector2(lato, lato)), vd, false)
+	if fermi:
+		var a1: int = int(dadi_a[0])
+		var a2: int = int(dadi_a[1])
+		var d1: int = int(dadi_d[0])
+		var d2: int = int(dadi_d[1])
+		draw_string(font, Vector2(x0 + 2 * (lato + 10), y + 32), "%d + %d = %d%s" % [int(riga["fa"]), absi(a1 - a2), int(riga["ta"]), "  (7!)" if a1 + a2 == 7 else ""], HORIZONTAL_ALIGNMENT_LEFT, col_w - 2 * (lato + 10), 22, rossa)
+		draw_string(font, Vector2(x0 + col_w + 18 + 2 * (lato + 10), y + 32), "%d + %d = %d%s" % [int(riga["fd"]), absi(d1 - d2), int(riga["td"]), "  (7!)" if d1 + d2 == 7 else ""], HORIZONTAL_ALIGNMENT_LEFT, col_w - 2 * (lato + 10), 22, blu)
+		var esito := "Vince l'attaccante" if riga["vince"] == "a" else ("Vince il difensore" if riga["vince"] == "d" else "Pareggio")
+		draw_string(font_titoli, Vector2(x0, y + lato + 36), esito, HORIZONTAL_ALIGNMENT_LEFT, dim.x - 36, 26, Color(0.55, 0.1, 0.06))
+
+func _disegna_viaggio() -> void:
+	var ev: Dictionary = viaggio["ev"]
+	var c := a_schermo(Dati.REGIONI[ev["da"]]["pos"])
+	var r := _riquadro(c, Vector2(330, 120))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.96, 0.91, 0.78, 0.97)
+	sb.border_color = Color(0.1, 0.2, 0.32)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(10)
+	draw_style_box(sb, r)
+	var fermo: bool = viaggio.get("fermo", false)
+	var facce := ["ok", "fermo", "affonda", "vuoto"]
+	var f: String = str(ev.get("esito", "ok")) if fermo else facce[int(tempo * 10.0) % 4]
+	var t: Texture2D = _tex("res://assets/dadi/viaggio_%s.jpg" % f)
+	draw_texture_rect(t, Rect2(r.position + Vector2(16, 18), Vector2(84, 84)), false)
+	draw_string(font_titoli, r.position + Vector2(116, 50), "Mare aperto", HORIZONTAL_ALIGNMENT_LEFT, 200, 24, Color(0.1, 0.2, 0.32))
+	if fermo:
+		var testo: String = {"ok": "Viaggio riuscito", "fermo": "Fermo in porto", "affonda": "Tempesta!"}.get(str(ev.get("esito", "ok")), "")
+		draw_string(font, r.position + Vector2(116, 84), testo, HORIZONTAL_ALIGNMENT_LEFT, 200, 22, Color(0.2, 0.13, 0.07))

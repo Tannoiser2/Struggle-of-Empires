@@ -34,6 +34,18 @@ func _run():
 			print("  ", ch.get_class(), " ", ch.get_combined_minimum_size())
 		await shot("banco")
 		quit(); return
+	if modo == "scheda":
+		for q in 30: await process_frame
+		var gi: int = main.m.gioc_di("fr")
+		var gg: Dictionary = main.m.g(gi)
+		for t in ["banca", "c_costa", "c_indie", "milizia", "diplomazia", "agricoltura", "sorpresa", "ritirata"]:
+			if Dati.TESSERE.has(t):
+				gg["tessere"].append({"t": t, "usata": t == "agricoltura"})
+		gg["tens"] = 2
+		gg["oro"] = 13
+		main._mostra_giocatore(gi)
+		await shot("scheda")
+		quit(); return
 	var target := int(args[1]) if args.size() > 1 else 1
 	var passi := 0
 	var visti := 0

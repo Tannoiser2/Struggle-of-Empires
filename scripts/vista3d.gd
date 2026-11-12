@@ -31,6 +31,11 @@ var pezzi: Node3D
 var anelli: Node3D
 var font: Font
 var tempo := 0.0
+var dadi: Dadi3D
+var scena_battaglia: Node3D
+var riquadro: PanelContainer
+var testo_riquadro: RichTextLabel
+var velocita := 1.0
 
 # camera in orbita
 var bersaglio := Vector3(2.5, 0, 2.5)
@@ -72,6 +77,32 @@ func _ready() -> void:
 	mondo = Node3D.new()
 	vp.add_child(mondo)
 	_costruisci_scena()
+	riquadro = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.96, 0.91, 0.78, 0.96)
+	sb.border_color = Color(0.55, 0.1, 0.06)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(10)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	riquadro.add_theme_stylebox_override("panel", sb)
+	riquadro.position = Vector2(14, 14)
+	riquadro.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	riquadro.visible = false
+	add_child(riquadro)
+	testo_riquadro = RichTextLabel.new()
+	testo_riquadro.bbcode_enabled = true
+	testo_riquadro.fit_content = true
+	testo_riquadro.custom_minimum_size = Vector2(560, 0)
+	testo_riquadro.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	testo_riquadro.add_theme_font_override("normal_font", font)
+	testo_riquadro.add_theme_font_size_override("normal_font_size", 20)
+	testo_riquadro.add_theme_font_override("bold_font", load("res://assets/font/IMFellSC.ttf"))
+	testo_riquadro.add_theme_font_size_override("bold_font_size", 26)
+	testo_riquadro.add_theme_color_override("default_color", Color(0.2, 0.13, 0.07))
+	riquadro.add_child(testo_riquadro)
 
 func _costruisci_scena() -> void:
 	var env := WorldEnvironment.new()
@@ -129,6 +160,10 @@ func _costruisci_scena() -> void:
 	mondo.add_child(pezzi)
 	anelli = Node3D.new()
 	mondo.add_child(anelli)
+	scena_battaglia = Node3D.new()
+	mondo.add_child(scena_battaglia)
+	dadi = Dadi3D.new()
+	mondo.add_child(dadi)
 	_aggiorna_camera()
 
 ## torna all'inquadratura di tutta la plancia
@@ -461,8 +496,9 @@ func _alleanze_locali() -> void:
 		_cliccabile(pf(Dati.ALLEANZE[la]["pos"]), "la:" + la, 0.4)
 		var p: String = m.s["locali"].get(la, "")
 		if p != "":
-			var pz := Pezzi3D.pezzo("alleanza_" + p, 1.6, 0.5)
-			_metti(pz, pf(Dati.ALLEANZE[la]["pos"]) + Vector3(0, 0, 0.3))
+			# a faccia in su sullo spazio dell'alleanza
+			var pz := Pezzi3D.pezzo("alleanza_" + p, 1.7, 0.4, true)
+			_metti(pz, pf(Dati.ALLEANZE[la]["pos"]))
 
 func _tracciati() -> void:
 	# round: cilindro di legno
@@ -497,18 +533,39 @@ func _tracciati() -> void:
 		per_pop[int(gg["pop"])] = per_pop.get(int(gg["pop"]), []) + [gg["pot"]]
 		var pv := clampi(int(gg["pv"]), 0, 100)
 		per_pv[pv] = per_pv.get(pv, []) + [gg["pot"]]
+	# popolazione: meeple della potenza sul tracciato della popolazione
 	for v in per_pop:
 		var arr2: Array = per_pop[v]
 		for k in arr2.size():
-			_metti(Pezzi3D.cubo(0.6, Dati.COLORE_POT[arr2[k]]), pf(Dati.pos_popolazione(int(v))) + Vector3(-1.2 + k * 0.8, 0, 0))
+			var mp := Pezzi3D.pezzo("meeple_" + arr2[k], 0.8, 0.45)
+			_metti(mp, pf(Dati.pos_popolazione(int(v))) + Vector3(-1.5 + (k % 4) * 0.75, 0, -0.25 + (k / 4) * 0.6))
+	# punti vittoria: segnalini esagonali con lo stemma della potenza
 	for v in per_pv:
 		var arr3: Array = per_pv[v]
 		for k in arr3.size():
-			# in file dritte, tutti rivolti nello stesso verso (niente diagonali)
-			var mp := Pezzi3D.pezzo("meeple_" + arr3[k], 0.8, 0.45)
-			var col := k % 4
-			var riga := k / 4
-			_metti(mp, pf(Dati.pos_pv(int(v))) + Vector3(-0.66 + col * 0.44, 0, -0.3 + riga * 0.6))
+			var hx := _esagono(arr3[k])
+			hx.position.y = k * 0.24
+			_metti(hx, pf(Dati.pos_pv(int(v))))
+		if arr3.size() > 1:
+			_etichetta(str(arr3.size()), pf(Dati.pos_pv(int(v))) + Vector3(0, arr3.size() * 0.24 + 0.8, 0), 48)
+
+## segnalino esagonale dei punti vittoria: prisma a 6 lati nel colore della potenza con lo stemma sopra
+func _esagono(p: String) -> Node3D:
+	var n := Node3D.new()
+	var base := Pezzi3D.cilindro(0.82, 0.22, Dati.COLORE_POT[p])
+	(base.mesh as CylinderMesh).radial_segments = 6
+	base.rotation.y = PI / 6.0
+	n.add_child(base)
+	var top := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(0.95, 1.15)
+	top.mesh = pm
+	var mat: StandardMaterial3D = Pezzi3D.materiale_immagine("res://assets/stemmi/%s.png" % Dati.STEMMA[p])
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	top.material_override = mat
+	top.position.y = 0.225
+	n.add_child(top)
+	return n
 
 func _tessere() -> void:
 	var banco: Dictionary = m.s["banco"]
@@ -570,3 +627,139 @@ func _anello(reg: String, col: Color, r: float) -> void:
 	mi.material_override = mat
 	mi.position = pf(Dati.REGIONI[reg]["pos"]) + Vector3(0, 0.12, 0.3)
 	anelli.add_child(mi)
+
+
+# ============================================================ battaglie e dadi sulla mappa
+
+func _attendi(sec: float) -> void:
+	await get_tree().create_timer(sec / maxf(velocita, 0.5)).timeout
+
+func _vola_camera(dest: Vector3, dist: float, pit: float, yw: float, sec := 0.7) -> void:
+	var b0 := bersaglio
+	var d0 := distanza
+	var p0 := pitch
+	var y0 := yaw
+	var tw := create_tween()
+	tw.tween_method(func(t: float):
+		var e := t * t * (3.0 - 2.0 * t)
+		bersaglio = b0.lerp(dest, e)
+		distanza = lerpf(d0, dist, e)
+		pitch = lerpf(p0, pit, e)
+		yaw = lerp_angle(y0, yw, e)
+		_aggiorna_camera(), 0.0, 1.0, sec)
+	await tw.finished
+
+func _scritta(testo: String, pos: Vector3, col: Color, dim := 46) -> Label3D:
+	var l := Label3D.new()
+	l.text = testo
+	l.font = font
+	l.font_size = dim
+	l.pixel_size = 0.02
+	l.outline_size = 22
+	l.modulate = col
+	l.outline_modulate = Color(0.08, 0.05, 0.03)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.position = pos
+	scena_battaglia.add_child(l)
+	return l
+
+func _anello_a(pos: Vector3, col: Color, r := 1.3) -> void:
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = r - 0.2
+	tm.outer_radius = r
+	mi.mesh = tm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.emission_enabled = true
+	mat.emission = col
+	mat.emission_energy_multiplier = 1.5
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mi.material_override = mat
+	mi.position = Vector3(pos.x, 0.1, pos.z)
+	scena_battaglia.add_child(mi)
+
+func _pos_chiave(chiave: String) -> Variant:
+	for x in cliccabili:
+		if x[1] == chiave:
+			return x[0]
+	return null
+
+func _pulisci_battaglia() -> void:
+	for c in scena_battaglia.get_children():
+		c.queue_free()
+	dadi.pulisci()
+
+## mostra un combattimento concluso: forze in campo, dadi che rotolano, esito
+func mostra_battaglia(cb: Dictionary) -> void:
+	var reg: String = cb.get("reg", "")
+	if reg == "" or not Dati.REGIONI.has(reg):
+		return
+	var cam0 := [bersaglio, distanza, pitch, yaw]
+	var rossa := Color(1.0, 0.3, 0.22)
+	var blu := Color(0.3, 0.55, 1.0)
+	for riga in cb.get("rapporto", []):
+		_pulisci_battaglia()
+		var navale: bool = riga["dom"] == "n"
+		var mare := Dati.mare_di(reg)
+		var centro := pf(Dati.REGIONI[reg]["pos"])
+		if navale and NAVI.has(mare):
+			centro = pp(NAVI[mare])
+		await _vola_camera(centro + Vector3(0, 0, 3.5), 27.0, deg_to_rad(55.0), 0.0)
+		# unità coinvolte: anelli rossi (attaccante) e blu (difensore)
+		var reg_u := mare if navale else reg
+		var comp: Dictionary = riga.get("comp", {})
+		for lato in ["a", "d"]:
+			var c: Dictionary = comp.get(lato, {})
+			for un in c.get("unita", []):
+				var pos = _pos_chiave("u:%s:%s:%d" % [reg_u, un[0], int(un[1])])
+				if pos != null:
+					_anello_a(pos, rossa if lato == "a" else blu, 1.5)
+		var intest := "[b]%s - %s[/b]\n%s\n" % ["Battaglia navale" if navale else "Battaglia terrestre", Dati.REGIONI[reg]["nome"], str(cb.get("titolo", ""))]
+		var forze := "[color=#9e1a10]ATTACCANTE[/color]\n" + "\n".join(comp.get("a", {}).get("parti", [])) + "\n[color=#9e1a10]Forza %d[/color]\n\n" % int(riga["fa"])
+		forze += "[color=#1f3f8c]DIFENSORE[/color]\n" + "\n".join(comp.get("d", {}).get("parti", [])) + "\n[color=#1f3f8c]Forza %d[/color]" % int(riga["fd"])
+		testo_riquadro.text = intest + forze
+		riquadro.visible = true
+		riquadro.reset_size()
+		await _attendi(1.3)
+		# i dadi: rossi per l'attaccante a sinistra, bianchi per il difensore a destra
+		var base := centro + Vector3(0, 0, 4.2)
+		var specs := [
+			{"tipo": "rosso", "valore": int(riga["a"][0]), "da": base + Vector3(-6, 5, 5), "a": base + Vector3(-3.0, 0, 0)},
+			{"tipo": "rosso", "valore": int(riga["a"][1]), "da": base + Vector3(-5, 5.5, 6), "a": base + Vector3(-1.4, 0, 0.6)},
+			{"tipo": "bianco", "valore": int(riga["d"][0]), "da": base + Vector3(6, 5, 5), "a": base + Vector3(1.4, 0, 0)},
+			{"tipo": "bianco", "valore": int(riga["d"][1]), "da": base + Vector3(5, 5.5, 6), "a": base + Vector3(3.0, 0, 0.6)}]
+		dadi.lancia(specs)
+		await dadi.finito
+		var da1: int = int(riga["a"][0])
+		var da2: int = int(riga["a"][1])
+		var dd1: int = int(riga["d"][0])
+		var dd2: int = int(riga["d"][1])
+		_scritta(str(int(riga["ta"])), base + Vector3(-2.2, 2.2, 0.3), rossa, 90)
+		_scritta(str(int(riga["td"])), base + Vector3(2.2, 2.2, 0.3), blu, 90)
+		var esito := "Vince l'attaccante" if riga["vince"] == "a" else ("Vince il difensore" if riga["vince"] == "d" else "Pareggio: perdono tutti e due")
+		var tot := "\n\n[color=#9e1a10]Attaccante: %d + differenza dei dadi %d = %d%s[/color]" % [int(riga["fa"]), absi(da1 - da2), int(riga["ta"]), " (ha tirato 7: un'unità in più persa)" if da1 + da2 == 7 else ""]
+		tot += "\n[color=#1f3f8c]Difensore: %d + differenza dei dadi %d = %d%s[/color]" % [int(riga["fd"]), absi(dd1 - dd2), int(riga["td"]), " (ha tirato 7: un'unità in più persa)" if dd1 + dd2 == 7 else ""]
+		tot += "\n[b]%s[/b]" % esito
+		testo_riquadro.text = intest + forze + tot
+		riquadro.reset_size()
+		await _attendi(2.6)
+	_pulisci_battaglia()
+	riquadro.visible = false
+	await _vola_camera(cam0[0], cam0[1], cam0[2], cam0[3], 0.6)
+
+## il dado del Viaggio in mare aperto
+func mostra_viaggio(ev: Dictionary) -> void:
+	var da: String = ev.get("da", "")
+	if not Dati.REGIONI.has(da):
+		return
+	_pulisci_battaglia()
+	var centro := pf(Dati.REGIONI[da]["pos"]) + Vector3(0, 0, 4.0)
+	dadi.lancia([{"tipo": "viaggio", "valore": str(ev.get("esito", "ok")), "da": centro + Vector3(-6, 6, 5), "a": centro}])
+	await dadi.finito
+	var testo: String = {"ok": "VIAGGIO RIUSCITO", "fermo": "FERMO IN PORTO", "affonda": "TEMPESTA!"}.get(str(ev.get("esito", "ok")), "")
+	_scritta("Mare aperto: " + testo, centro + Vector3(0, 3.5, 0), Color(1, 0.92, 0.7), 64)
+	await _attendi(1.4)
+	_pulisci_battaglia()

@@ -47,6 +47,9 @@ var ultimo_salvataggio := 0.0
 var ultimo_cb_visto := -1
 var ultimo_evento_visto := -1
 var popup_aperto := false
+## viaggi e battaglie da mostrare sulla mappa, uno dopo l'altro
+var animazioni: Array = []
+var animazione_in_corso := false
 
 # scelte del menu
 var scelta_np := 4
@@ -184,6 +187,8 @@ func pulisci() -> void:
 	in_partita = false
 	plancia = null
 	vista = null
+	animazioni = []
+	animazione_in_corso = false
 	popup = null
 	popup_aperto = false
 
@@ -921,29 +926,21 @@ func _mostra_banco() -> void:
 func _mostra_giocatore(i: int) -> void:
 	var gg := m.g(i)
 	var p: String = gg["pot"]
-	var v := _apri_popup("%s - %s" % [m.nome(i), Dati.NOME_POT[p]], 1100)
+	var v := _apri_popup("%s - %s" % [m.nome(i), Dati.NOME_POT[p]], 1680)
 	var h := HBoxContainer.new()
 	v.add_child(h)
-	h.add_child(immagine("res://assets/stemmi/%s.png" % Dati.STEMMA[p], 100, 120))
 	var inf := etichetta("Oro %d, Popolazione %d, Tensione %d, Punti Vittoria %d.\nSegnalini Controllo sulla mappa: %d. Unità: %d Eserciti, %d Flotte, %d Forti.\nAlleanze Locali: %d. Fiducia degli altri: %d su 100." % [
 		int(gg["oro"]), int(gg["pop"]), int(gg["tens"]), int(gg["pv"]), m.tot_c(p), m.tot_u(p, 0), m.tot_u(p, 1), m.tot_u(p, 2),
 		m.locali_di(p), int(float(m.s["rep"][i]) * 100)], F_TESTO, 20)
 	inf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(inf)
-	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(1060, 480)
-	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	v.add_child(sc)
-	var g := GridContainer.new()
-	g.columns = 6
-	sc.add_child(g)
+	var sch := SchedaNazione.new()
+	sch.imposta(m, i, 1640.0)
+	v.add_child(sch)
 	if gg["tessere"].is_empty():
-		v.add_child(etichetta("Nessuna tessera.", F_CORSIVO, 19, C_SPENTO))
-	for x in gg["tessere"]:
-		var c := _carta_tessera(x["t"], 160, "usata in questa guerra" if x["usata"] else "")
-		if x["usata"]:
-			c.modulate = Color(1, 1, 1, 0.55)
-		g.add_child(c)
+		v.add_child(etichetta("Nessuna tessera: quelle acquistate si mettono a sinistra della fascia del loro colore.", F_CORSIVO, 18, C_SPENTO))
+	else:
+		v.add_child(etichetta("Passa il mouse su una tessera o su un pezzo per i dettagli.", F_CORSIVO, 18, C_SPENTO))
 	v.add_child(bottone("Chiudi", _chiudi_popup, 22))
 
 # ---------- aggiornamento
@@ -1043,12 +1040,7 @@ func _aggiorna_diario() -> void:
 	diario.text = t
 
 func _controlla_eventi() -> void:
-	# rapporto dell'ultimo combattimento
-	var cb: Dictionary = m.s.get("ultimo_cb", {})
-	if not cb.is_empty() and int(cb.get("passo", -1)) != ultimo_cb_visto:
-		ultimo_cb_visto = int(cb["passo"])
-		_mostra_combattimento(cb)
-	# trattative e viaggi
+	# viaggi in mare aperto e combattimenti: si mostrano sulla mappa, in ordine
 	for e in m.s["eventi"]:
 		if int(e["n"]) <= ultimo_evento_visto:
 			continue
@@ -1057,11 +1049,45 @@ func _controlla_eventi() -> void:
 				if io(int(e["da"])):
 					_notifica("%s %s la tua proposta." % [m.nome(int(e["g"])), "accetta" if e["esito"] == "si" else "rifiuta"])
 			"viaggio":
-				if io(int(e["g"])) and e["esito"] == "ok":
-					_notifica("Viaggio in mare aperto riuscito.")
+				animazioni.append({"tipo": "viaggio", "ev": e})
 			"punteggio":
-				_mostra_punteggio(e)
+				animazioni.append({"tipo": "punteggio", "ev": e})
+	var cb: Dictionary = m.s.get("ultimo_cb", {})
+	if not cb.is_empty() and int(cb.get("passo", -1)) != ultimo_cb_visto:
+		ultimo_cb_visto = int(cb["passo"])
+		animazioni.append({"tipo": "battaglia", "cb": cb.duplicate(true)})
 	ultimo_evento_visto = int(m.s["passo"])
+	if not animazione_in_corso:
+		_prossima_animazione()
+
+func _prossima_animazione() -> void:
+	if animazioni.is_empty() or not in_partita:
+		animazione_in_corso = false
+		return
+	animazione_in_corso = true
+	var a: Dictionary = animazioni.pop_front()
+	plancia.velocita = velocita
+	vista.velocita = velocita
+	match a["tipo"]:
+		"viaggio":
+			if vista_3d:
+				await vista.mostra_viaggio(a["ev"])
+			else:
+				await plancia.mostra_viaggio(a["ev"])
+		"battaglia":
+			if vista_3d:
+				await vista.mostra_battaglia(a["cb"])
+			else:
+				await plancia.mostra_battaglia(a["cb"])
+			if in_partita:
+				_mostra_combattimento(a["cb"])
+				while popup_aperto and in_partita:
+					await get_tree().process_frame
+		"punteggio":
+			_mostra_punteggio(a["ev"])
+			while popup_aperto and in_partita:
+				await get_tree().process_frame
+	_prossima_animazione()
 
 func _notifica(t: String) -> void:
 	if is_instance_valid(notifica):
@@ -1378,7 +1404,7 @@ func _process(delta: float) -> void:
 		return
 	var seat: int = m.g(r["g"])["seat"]
 	if seat < 0:
-		if popup_aperto and not online:
+		if (popup_aperto or animazione_in_corso) and not online:
 			return
 		attesa += delta * velocita
 		var pausa := 0.55 if r["k"] in ["azione", "asta", "piazza"] else 0.3
