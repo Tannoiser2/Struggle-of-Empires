@@ -35,6 +35,8 @@ var dadi: Dadi3D
 var scena_battaglia: Node3D
 var riquadro: PanelContainer
 var testo_riquadro: RichTextLabel
+var bottone_riquadro: Button
+signal continua_premuto
 var velocita := 1.0
 
 # camera in orbita
@@ -88,21 +90,38 @@ func _ready() -> void:
 	sb.content_margin_top = 10
 	sb.content_margin_bottom = 10
 	riquadro.add_theme_stylebox_override("panel", sb)
-	riquadro.position = Vector2(14, 14)
+	riquadro.anchor_left = 1.0
+	riquadro.anchor_right = 1.0
+	riquadro.offset_right = -14
+	riquadro.offset_left = -14
+	riquadro.offset_top = 14
+	riquadro.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	riquadro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	riquadro.visible = false
 	add_child(riquadro)
 	testo_riquadro = RichTextLabel.new()
 	testo_riquadro.bbcode_enabled = true
 	testo_riquadro.fit_content = true
-	testo_riquadro.custom_minimum_size = Vector2(560, 0)
+	testo_riquadro.custom_minimum_size = Vector2(500, 0)
 	testo_riquadro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	testo_riquadro.add_theme_font_override("normal_font", font)
-	testo_riquadro.add_theme_font_size_override("normal_font_size", 20)
+	testo_riquadro.add_theme_font_size_override("normal_font_size", 19)
 	testo_riquadro.add_theme_font_override("bold_font", load("res://assets/font/IMFellSC.ttf"))
 	testo_riquadro.add_theme_font_size_override("bold_font_size", 26)
 	testo_riquadro.add_theme_color_override("default_color", Color(0.2, 0.13, 0.07))
-	riquadro.add_child(testo_riquadro)
+	var vb := VBoxContainer.new()
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	riquadro.add_child(vb)
+	vb.add_child(testo_riquadro)
+	bottone_riquadro = Button.new()
+	bottone_riquadro.text = "Continua"
+	bottone_riquadro.add_theme_font_override("font", font)
+	bottone_riquadro.add_theme_font_size_override("font_size", 22)
+	bottone_riquadro.custom_minimum_size = Vector2(220, 44)
+	bottone_riquadro.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bottone_riquadro.visible = false
+	bottone_riquadro.pressed.connect(func(): continua_premuto.emit())
+	vb.add_child(bottone_riquadro)
 
 func _costruisci_scena() -> void:
 	var env := WorldEnvironment.new()
@@ -294,6 +313,9 @@ func regione_a(pos: Vector2) -> String:
 		return ""
 	var hit := o + dn * t
 	var px := Vector2((hit.x / W + 0.5) * 1800.0, (hit.z / H + 0.5) * 998.4)
+	var dentro := Dati.regione_in(Vector2(hit.x / W + 0.5, hit.z / H + 0.5))
+	if dentro != "":
+		return dentro
 	var best := ""
 	var bd := 75.0
 	for r in Dati.REGIONI:
@@ -322,8 +344,11 @@ func oggetto_a(pos: Vector2) -> String:
 			best = x[1]
 	return best
 
-func _cliccabile(pos: Vector3, chiave: String, alto := 0.5) -> void:
+func _cliccabile(pos: Vector3, chiave: String, alto := 0.5, rett := Vector2.ZERO) -> void:
 	cliccabili.append([pos + Vector3(0, alto, 0), chiave])
+	if chiave in evid_oggetti and rett != Vector2.ZERO:
+		_cornice(Vector3(pos.x, pos.y + alto - 0.12, pos.z), rett + Vector2(0.3, 0.3), Color(1.0, 0.82, 0.2))
+		return
 	if chiave in evid_oggetti:
 		var mi := MeshInstance3D.new()
 		var tm := TorusMesh.new()
@@ -369,9 +394,10 @@ func aggiorna() -> void:
 	_tracciati()
 	_tessere()
 	for reg in evidenzia:
-		_anello(reg, Color(1.0, 0.82, 0.25), 3.2)
+		if reg != selezionata:
+			_contorno(reg, Color(1.0, 0.82, 0.25), 0.32, 0.16)
 	if selezionata != "":
-		_anello(selezionata, Color(0.8, 0.1, 0.06), 3.6)
+		_contorno(selezionata, Color(0.9, 0.12, 0.06), 0.42, 0.22)
 
 func _metti(n: Node3D, pos: Vector3) -> Node3D:
 	n.position += pos
@@ -586,7 +612,7 @@ func _tessere() -> void:
 				ts.rotation.y = PI / 2.0
 			ts.position.y = k * 0.12
 			_metti(ts, centro)
-		_cliccabile(centro, "tessera:" + t, mini(n, 8) * 0.12 + 0.2)
+		_cliccabile(centro, "tessera:" + t, mini(n, 8) * 0.12 + 0.2, Vector2(w, h))
 		if n > 1:
 			_etichetta(str(n), centro + Vector3(0, mini(n, 8) * 0.12 + 0.7, 0), 56)
 	# compagnie commerciali: sul tavolo a destra della plancia
@@ -602,7 +628,7 @@ func _tessere() -> void:
 			ts2.position.y = k * 0.12
 			_metti(ts2, pos)
 		if n2 > 0:
-			_cliccabile(pos, "tessera:" + t, n2 * 0.12 + 0.2)
+			_cliccabile(pos, "tessera:" + t, n2 * 0.12 + 0.2, Vector2(5.4, 3.9))
 		if n2 > 1:
 			_etichetta(str(n2), pos + Vector3(0, n2 * 0.12 + 0.7, 0), 56)
 	# segnalini delle azioni segrete ancora disponibili
@@ -610,6 +636,89 @@ func _tessere() -> void:
 		if m.s["segrete"][tok].is_empty():
 			_metti(Pezzi3D.pezzo(tok, 1.9, 0.22, true), pp(POS_PIRATI if tok == "pirati" else POS_RIVOLTA))
 			_cliccabile(pp(POS_PIRATI if tok == "pirati" else POS_RIVOLTA), "tok:" + tok, 0.4)
+
+## cornice luminosa attorno a una tessera (rett: larghezza in x e profondità in z)
+func _cornice(c: Vector3, rett: Vector2, col: Color) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hx := rett.x / 2.0
+	var hz := rett.y / 2.0
+	var l := 0.22
+	var pezzi_c := [[Vector2(-hx - l, -hz - l), Vector2(hx + l, -hz)], [Vector2(-hx - l, hz), Vector2(hx + l, hz + l)],
+		[Vector2(-hx - l, -hz), Vector2(-hx, hz)], [Vector2(hx, -hz), Vector2(hx + l, hz)]]
+	for r in pezzi_c:
+		var a: Vector2 = r[0]
+		var b: Vector2 = r[1]
+		var v := [Vector3(a.x, 0, a.y), Vector3(b.x, 0, a.y), Vector3(b.x, 0, b.y), Vector3(a.x, 0, b.y)]
+		for idx in [0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]:
+			st.add_vertex(v[idx] + c)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.emission_enabled = true
+	mat.emission = col
+	mat.emission_energy_multiplier = 1.6
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	anelli.add_child(mi)
+
+## evidenzia una regione seguendo il suo confine vero: un nastro luminoso e un velo di colore sopra la terra
+func _contorno(reg: String, col: Color, largo: float, velo: float) -> void:
+	var polys: Array = Dati.confini(reg)
+	if polys.is_empty():
+		_anello(reg, col, 3.2)
+		return
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var fill := SurfaceTool.new()
+	fill.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ha_fill := false
+	var y := 0.07
+	for poly in polys:
+		var pts: Array = []
+		for q in poly:
+			var w3 := pf(q)
+			pts.append(Vector2(w3.x, w3.z))
+		var n := pts.size()
+		for i in n:
+			var a: Vector2 = pts[i]
+			var b: Vector2 = pts[(i + 1) % n]
+			var d := b - a
+			if d.length() < 0.0001:
+				continue
+			var nn := Vector2(-d.y, d.x).normalized() * largo * 0.5
+			var ext := d.normalized() * largo * 0.5
+			var a1 := a - ext
+			var b1 := b + ext
+			var v := [Vector3(a1.x + nn.x, y, a1.y + nn.y), Vector3(b1.x + nn.x, y, b1.y + nn.y),
+				Vector3(b1.x - nn.x, y, b1.y - nn.y), Vector3(a1.x - nn.x, y, a1.y - nn.y)]
+			for idx in [0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]:
+				st.add_vertex(v[idx])
+		var tri := Geometry2D.triangulate_polygon(PackedVector2Array(pts))
+		for t in tri:
+			var p2: Vector2 = pts[t]
+			fill.add_vertex(Vector3(p2.x, y - 0.01, p2.y))
+			ha_fill = true
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	anelli.add_child(mi)
+	if ha_fill:
+		var mf := StandardMaterial3D.new()
+		mf.albedo_color = Color(col.r, col.g, col.b, velo)
+		mf.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mf.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mf.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var mi2 := MeshInstance3D.new()
+		mi2.mesh = fill.commit()
+		mi2.material_override = mf
+		anelli.add_child(mi2)
 
 func _anello(reg: String, col: Color, r: float) -> void:
 	var mi := MeshInstance3D.new()
@@ -693,7 +802,7 @@ func _pulisci_battaglia() -> void:
 	dadi.pulisci()
 
 ## mostra un combattimento concluso: forze in campo, dadi che rotolano, esito
-func mostra_battaglia(cb: Dictionary) -> void:
+func mostra_battaglia(cb: Dictionary, continua := false) -> void:
 	var reg: String = cb.get("reg", "")
 	if reg == "" or not Dati.REGIONI.has(reg):
 		return
@@ -707,7 +816,7 @@ func mostra_battaglia(cb: Dictionary) -> void:
 		var centro := pf(Dati.REGIONI[reg]["pos"])
 		if navale and NAVI.has(mare):
 			centro = pp(NAVI[mare])
-		await _vola_camera(centro + Vector3(0, 0, 3.5), 27.0, deg_to_rad(55.0), 0.0)
+		await _vola_camera(centro + Vector3(5.5, 0, 3.0), 29.0, deg_to_rad(55.0), 0.0)
 		# unità coinvolte: anelli rossi (attaccante) e blu (difensore)
 		var reg_u := mare if navale else reg
 		var comp: Dictionary = riga.get("comp", {})
@@ -743,9 +852,22 @@ func mostra_battaglia(cb: Dictionary) -> void:
 		var tot := "\n\n[color=#9e1a10]Attaccante: %d + differenza dei dadi %d = %d%s[/color]" % [int(riga["fa"]), absi(da1 - da2), int(riga["ta"]), " (ha tirato 7: un'unità in più persa)" if da1 + da2 == 7 else ""]
 		tot += "\n[color=#1f3f8c]Difensore: %d + differenza dei dadi %d = %d%s[/color]" % [int(riga["fd"]), absi(dd1 - dd2), int(riga["td"]), " (ha tirato 7: un'unità in più persa)" if dd1 + dd2 == 7 else ""]
 		tot += "\n[b]%s[/b]" % esito
+		var perdite: Array = []
+		for pz in riga.get("perdite", []):
+			perdite.append("%s: %s" % [Dati.NOME_POT.get(pz[0], str(pz[0])), str(Motore.NOMI_U[int(pz[1])]).to_lower()])
+		tot += "\nPerdite: " + (", ".join(perdite) if not perdite.is_empty() else "nessuna") + "."
+		var ultima: bool = riga == cb["rapporto"][cb["rapporto"].size() - 1]
+		if ultima and str(cb.get("esito", "")) != "":
+			tot += "\n\n[b]%s[/b]" % str(cb["esito"])
 		testo_riquadro.text = intest + forze + tot
 		riquadro.reset_size()
-		await _attendi(2.6)
+		if ultima and continua:
+			bottone_riquadro.visible = true
+			riquadro.reset_size()
+			await continua_premuto
+			bottone_riquadro.visible = false
+		else:
+			await _attendi(3.2 if ultima else 2.4)
 	_pulisci_battaglia()
 	riquadro.visible = false
 	await _vola_camera(cam0[0], cam0[1], cam0[2], cam0[3], 0.6)

@@ -15,6 +15,8 @@ func _fino_a_mia_azione() -> Dictionary:
 		await process_frame
 		if main.popup_aperto:
 			main._chiudi_popup()
+		if main.vista.bottone_riquadro.visible:
+			main.vista.continua_premuto.emit()
 		var r: Dictionary = main.m.richiesta()
 		if r.is_empty():
 			continue

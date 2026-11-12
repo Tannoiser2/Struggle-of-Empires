@@ -10,6 +10,8 @@ signal finito
 const LATO := 1.25
 const G := 700.0
 const DT := 1.0 / 120.0
+## i dadi veri sono piccoli e pesanti: si riproduce il lancio un po' rallentato perché si veda rotolare
+const RALLENTA := 0.55
 
 ## facce del cubo nell'ordine delle superfici: +X, -X, +Y, -Y, +Z, -Z
 const ASSI := [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.BACK, Vector3.FORWARD]
@@ -91,8 +93,9 @@ static func materiale(tex: Texture2D) -> StandardMaterial3D:
 ## simula un lancio: restituisce i fotogrammi [posizione, quaternione] a 60 al secondo
 static func simula(x: Vector3, v: Vector3, w: Vector3, q: Quaternion) -> Array:
 	var h := LATO / 2.0
-	var massa := 1.0
-	var inv_i := 6.0 / (massa * LATO * LATO)
+	var inv_m := 1.0
+	var inv_i := 6.0 / (LATO * LATO)
+	var mu := 0.55
 	var angoli: Array = []
 	for sx in [-1, 1]:
 		for sy in [-1, 1]:
@@ -101,43 +104,59 @@ static func simula(x: Vector3, v: Vector3, w: Vector3, q: Quaternion) -> Array:
 	var frames: Array = []
 	var fermo := 0
 	var n := Vector3.UP
-	for step in 900:
+	for step in 1200:
 		v.y -= G * DT
-		x += v * DT
-		if w.length() > 0.0001:
-			q = (Quaternion(w.normalized(), w.length() * DT) * q).normalized()
-		var pen := 0.0
+		# contatti: spigoli sotto (o quasi) il piano
+		var contatti: Array = []
 		for c in angoli:
-			var p: Vector3 = x + q * c
-			if p.y >= 0.0:
-				continue
-			pen = maxf(pen, -p.y)
-			var r := p - x
-			var vp := v + w.cross(r)
-			if vp.y >= 0.0:
-				continue
-			var rn := r.cross(n)
-			var den := 1.0 / massa + (rn * inv_i).cross(r).dot(n)
-			var j := -(1.0 + 0.32) * vp.y / den
-			v += n * j / massa
-			w += r.cross(n * j) * inv_i
-			# attrito
-			vp = v + w.cross(r)
-			var vt := vp - n * vp.y
-			if vt.length() > 0.001:
-				var t := vt.normalized()
-				var den_t := 1.0 / massa + (r.cross(t) * inv_i).cross(r).dot(t)
-				var jt := maxf(-vt.length() / den_t, -0.45 * j)
-				v += t * jt / massa
-				w += r.cross(t * jt) * inv_i
-		x.y += pen
-		v *= 0.998
-		w *= 0.992
+			var r: Vector3 = q * c
+			var p := x + r
+			if p.y < 0.02:
+				var vn0 := (v + w.cross(r)).y
+				contatti.append({"r": r, "pen": -p.y, "pn": 0.0, "pt": Vector3.ZERO,
+					"bounce": -0.38 * (vn0 + G * DT) if vn0 + G * DT < -3.0 else 0.0})
+		# impulsi sequenziali, più passate per distribuire il peso su tutti gli spigoli
+		for it in 12:
+			for ct in contatti:
+				var r: Vector3 = ct["r"]
+				var vp := v + w.cross(r)
+				var rn := r.cross(n)
+				var k_n := inv_m + inv_i * rn.length_squared()
+				var bias := maxf(0.0, float(ct["pen"]) - 0.005) * 0.25 / DT
+				var dpn: float = (-vp.y + float(ct["bounce"]) + bias) / k_n
+				var pn0: float = ct["pn"]
+				var pn := maxf(pn0 + dpn, 0.0)
+				dpn = pn - pn0
+				ct["pn"] = pn
+				v += n * dpn * inv_m
+				w += r.cross(n * dpn) * inv_i
+				# attrito (cono di Coulomb sul piano)
+				vp = v + w.cross(r)
+				var vt := Vector3(vp.x, 0, vp.z)
+				if vt.length() > 0.00001:
+					var t := vt.normalized()
+					var k_t := inv_m + inv_i * r.cross(t).length_squared()
+					var pt_nuovo: Vector3 = ct["pt"] - t * (vt.length() / k_t)
+					var lim: float = mu * pn
+					if pt_nuovo.length() > lim:
+						pt_nuovo = pt_nuovo.normalized() * lim
+					var dpt: Vector3 = pt_nuovo - ct["pt"]
+					ct["pt"] = pt_nuovo
+					v += dpt * inv_m
+					w += r.cross(dpt) * inv_i
+		x += v * DT
+		if w.length() > 0.00001:
+			q = (Quaternion(w.normalized(), w.length() * DT) * q).normalized()
+		if contatti.size() > 0:
+			# resistenza al rotolamento e allo spin quando tocca il tavolo
+			w *= 0.985
+			v.x *= 0.995
+			v.z *= 0.995
 		if step % 2 == 0:
 			frames.append([x, q])
-		if x.y < h * 1.08 and v.length() < 2.0 and w.length() < 0.6:
+		if contatti.size() >= 3 and v.length() < 0.4 and w.length() < 0.6:
 			fermo += 1
-			if fermo > 24:
+			if fermo > 16:
 				break
 		else:
 			fermo = 0
@@ -145,8 +164,8 @@ static func simula(x: Vector3, v: Vector3, w: Vector3, q: Quaternion) -> Array:
 	var su := _faccia_su(q)
 	var q_fine: Quaternion = Quaternion(q * ASSI[su], Vector3.UP) * q
 	var x_fine := Vector3(x.x, h, x.z)
-	for k in 10:
-		var t2 := (k + 1) / 10.0
+	for k in 6:
+		var t2 := (k + 1) / 6.0
 		frames.append([x.lerp(x_fine, t2), q.slerp(q_fine, t2)])
 	return frames
 
@@ -168,10 +187,13 @@ func lancia(specs: Array) -> void:
 	for sp in specs:
 		var da: Vector3 = sp["da"]
 		var a: Vector3 = sp["a"]
-		var tempo_volo := 0.7
-		var v := Vector3((a.x - da.x) / tempo_volo, 2.0, (a.z - da.z) / tempo_volo)
-		var w := Vector3(rng.randf_range(-18, 18), rng.randf_range(-8, 8), rng.randf_range(-18, 18))
-		var q := Quaternion(Vector3(rng.randf(), rng.randf(), rng.randf()).normalized(), rng.randf_range(0, TAU))
+		var dir := Vector3(a.x - da.x, 0, a.z - da.z)
+		var vel := 24.0 + rng.randf_range(-3, 4)
+		var v := dir.normalized() * vel + Vector3(0, rng.randf_range(2.0, 5.0), 0)
+		# il dado esce di mano già ruotando in avanti (rotolamento) con un po' di disordine
+		var asse := Vector3.UP.cross(dir.normalized())
+		var w := asse * rng.randf_range(16, 26) + Vector3(rng.randf_range(-6, 6), rng.randf_range(-4, 4), rng.randf_range(-6, 6))
+		var q := Quaternion(Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized(), rng.randf_range(0, TAU))
 		var frames := simula(da, v, w, q)
 		# si sposta tutto il lancio in modo che il dado si fermi proprio nel punto voluto
 		var fine: Vector3 = frames[frames.size() - 1][0]
@@ -248,14 +270,16 @@ func pulisci() -> void:
 func _process(delta: float) -> void:
 	if not _attivo:
 		return
-	_frame += delta * 60.0
+	_frame += delta * 60.0 * RALLENTA
 	var tutti_fermi := true
 	for d in _dadi:
 		var fr: Array = d[1]
 		var i := mini(int(_frame), fr.size() - 1)
+		var j := mini(i + 1, fr.size() - 1)
+		var t := clampf(_frame - int(_frame), 0.0, 1.0)
 		var mi: MeshInstance3D = d[0]
-		mi.position = fr[i][0]
-		mi.quaternion = fr[i][1]
+		mi.position = (fr[i][0] as Vector3).lerp(fr[j][0], t)
+		mi.quaternion = (fr[i][1] as Quaternion).slerp(fr[j][1], t)
 		if int(_frame) < fr.size() - 1:
 			tutti_fermi = false
 	if tutti_fermi:

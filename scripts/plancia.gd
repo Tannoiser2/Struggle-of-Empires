@@ -152,6 +152,10 @@ func _cliccabile(r: Rect2, chiave: String) -> void:
 		draw_rect(r.grow(3), Color(1.0, 0.82, 0.25, 0.5 + 0.4 * puls), false, 3.0)
 
 func regione_a(pos: Vector2) -> String:
+	var r0 := area()
+	var dentro := Dati.regione_in((pos - r0.position) / r0.size)
+	if dentro != "":
+		return dentro
 	var best := ""
 	var bd := 70.0 * scala()
 	for r in Dati.REGIONI:
@@ -181,19 +185,33 @@ func _draw() -> void:
 	# regioni da scegliere
 	var puls := 0.55 + 0.45 * sin(tempo * 4.0)
 	for reg in evidenzia:
-		var c := a_schermo(Dati.REGIONI[reg]["pos"])
-		draw_arc(c, 46.0 * sc, 0, TAU, 48, Color(1.0, 0.85, 0.3, 0.5 + 0.4 * puls), 4.0 * sc, true)
-		draw_arc(c, 52.0 * sc, 0, TAU, 48, Color(0.55, 0.1, 0.05, 0.35 * puls), 2.5 * sc, true)
+		if reg != selezionata:
+			_contorno(reg, Color(1.0, 0.85, 0.3, 0.55 + 0.4 * puls), 4.0 * sc, 0.12 + 0.06 * puls)
 	if selezionata != "":
-		var c2 := a_schermo(Dati.REGIONI[selezionata]["pos"])
-		draw_arc(c2, 50.0 * sc, 0, TAU, 48, Color(0.75, 0.1, 0.08, 0.9), 4.0 * sc, true)
+		_contorno(selezionata, Color(0.8, 0.1, 0.06, 0.95), 5.0 * sc, 0.18)
 	if not battaglia.is_empty():
 		_disegna_battaglia()
 	if not viaggio.is_empty():
 		_disegna_viaggio()
 	if sopra != "":
-		var c3 := a_schermo(Dati.REGIONI[sopra]["pos"])
-		draw_arc(c3, 44.0 * sc, 0, TAU, 40, Color(1, 1, 1, 0.35), 2.0 * sc, true)
+		_contorno(sopra, Color(1, 1, 1, 0.55), 2.5 * sc, 0.0)
+
+## evidenzia una regione lungo il suo confine vero (con un velo di colore se velo > 0)
+func _contorno(reg: String, col: Color, largo: float, velo: float) -> void:
+	var polys: Array = Dati.confini(reg)
+	if polys.is_empty():
+		draw_arc(a_schermo(Dati.REGIONI[reg]["pos"]), 46.0 * scala(), 0, TAU, 48, col, largo, true)
+		return
+	for poly in polys:
+		var pts := PackedVector2Array()
+		for q in poly:
+			pts.append(a_schermo(q))
+		if velo > 0.0 and not Geometry2D.triangulate_polygon(pts).is_empty():
+			draw_colored_polygon(pts, Color(col.r, col.g, col.b, velo))
+		var chiuso := pts.duplicate()
+		chiuso.append(pts[0])
+		draw_polyline(chiuso, Color(0.1, 0.05, 0.02, col.a * 0.6), largo + 3.0, true)
+		draw_polyline(chiuso, col, largo, true)
 
 func _testo(pos: Vector2, t: String, size_px: float, col := Color.WHITE, ombra := true, f: Font = null) -> void:
 	var ff := f if f != null else font
@@ -371,19 +389,40 @@ func _disegna_tracciati(sc: float) -> void:
 func _attendi(sec: float) -> void:
 	await get_tree().create_timer(sec / maxf(velocita, 0.5)).timeout
 
-func mostra_battaglia(cb: Dictionary) -> void:
+signal continua_premuto
+var bottone_battaglia: Button
+
+func mostra_battaglia(cb: Dictionary, continua := false) -> void:
 	var reg: String = cb.get("reg", "")
 	if not Dati.REGIONI.has(reg):
 		return
-	for riga in cb.get("rapporto", []):
-		battaglia = {"reg": reg, "riga": riga, "t0": tempo}
+	var righe: Array = cb.get("rapporto", [])
+	for n in righe.size():
+		var riga: Dictionary = righe[n]
+		var ultima := n == righe.size() - 1
+		battaglia = {"reg": reg, "riga": riga, "t0": tempo, "esito_finale": str(cb.get("esito", "")) if ultima else ""}
 		queue_redraw()
 		await _attendi(1.0)
 		battaglia["lancio"] = tempo
 		await _attendi(1.3)
 		battaglia["fermi"] = true
 		queue_redraw()
-		await _attendi(2.2)
+		if ultima and continua:
+			if bottone_battaglia == null:
+				bottone_battaglia = Button.new()
+				bottone_battaglia.text = "Continua"
+				bottone_battaglia.add_theme_font_override("font", font)
+				bottone_battaglia.add_theme_font_size_override("font_size", 22)
+				bottone_battaglia.custom_minimum_size = Vector2(220, 44)
+				bottone_battaglia.pressed.connect(func(): continua_premuto.emit())
+				add_child(bottone_battaglia)
+			battaglia["bottone"] = true
+			bottone_battaglia.visible = true
+			queue_redraw()
+			await continua_premuto
+			bottone_battaglia.visible = false
+		else:
+			await _attendi(3.2 if ultima else 2.4)
 	battaglia = {}
 	queue_redraw()
 
@@ -425,7 +464,11 @@ func _disegna_battaglia() -> void:
 	var pa: Array = comp.get("a", {}).get("parti", [])
 	var pd: Array = comp.get("d", {}).get("parti", [])
 	var righe := maxi(pa.size(), pd.size())
-	var dim := Vector2(620, 150 + 24 * righe + 120)
+	var perdite: Array = []
+	for pz in riga.get("perdite", []):
+		perdite.append("%s: %s" % [Dati.NOME_POT.get(pz[0], str(pz[0])), str(Motore.NOMI_U[int(pz[1])]).to_lower()])
+	var fin: String = battaglia.get("esito_finale", "")
+	var dim := Vector2(700, 104 + 24 * righe + (150 if battaglia.has("lancio") else 0) + (34 if fin != "" else 0) + (62 if battaglia.has("bottone") else 0))
 	var r := _riquadro(c, dim)
 	# freccia verso la regione
 	draw_line(c, Vector2(clampf(c.x, r.position.x, r.end.x), clampf(c.y, r.position.y, r.end.y)), Color(0.55, 0.1, 0.06), 4.0, true)
@@ -474,6 +517,11 @@ func _disegna_battaglia() -> void:
 		draw_string(font, Vector2(x0 + col_w + 18 + 2 * (lato + 10), y + 32), "%d + %d = %d%s" % [int(riga["fd"]), absi(d1 - d2), int(riga["td"]), "  (7!)" if d1 + d2 == 7 else ""], HORIZONTAL_ALIGNMENT_LEFT, col_w - 2 * (lato + 10), 22, blu)
 		var esito := "Vince l'attaccante" if riga["vince"] == "a" else ("Vince il difensore" if riga["vince"] == "d" else "Pareggio")
 		draw_string(font_titoli, Vector2(x0, y + lato + 36), esito, HORIZONTAL_ALIGNMENT_LEFT, dim.x - 36, 26, Color(0.55, 0.1, 0.06))
+		draw_string(font, Vector2(x0, y + lato + 66), "Perdite: " + (", ".join(perdite) if not perdite.is_empty() else "nessuna") + ".", HORIZONTAL_ALIGNMENT_LEFT, dim.x - 36, 19, Color(0.2, 0.13, 0.07))
+		if fin != "":
+			draw_string(font_titoli, Vector2(x0, y + lato + 100), fin, HORIZONTAL_ALIGNMENT_LEFT, dim.x - 36, 22, Color(0.55, 0.1, 0.06))
+		if battaglia.has("bottone") and bottone_battaglia != null:
+			bottone_battaglia.position = Vector2(r.get_center().x - 110, r.end.y - 58)
 
 func _disegna_viaggio() -> void:
 	var ev: Dictionary = viaggio["ev"]

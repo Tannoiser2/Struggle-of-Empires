@@ -34,6 +34,16 @@ func _run():
 			print("  ", ch.get_class(), " ", ch.get_combined_minimum_size())
 		await shot("banco")
 		quit(); return
+	if modo == "contorni":
+		for q in 60: await process_frame
+		main._evidenzia(["germania", "caraibi", "india", "mediterraneo", "casa_gb"], ["tessera:banca", "tessera:riforma"])
+		main._seleziona("casa_fr")
+		main.vista.inquadra_tutto()
+		await shot("contorni3d")
+		main.vista_3d = false
+		main._mostra_vista()
+		await shot("contorni2d")
+		quit(); return
 	if modo == "scheda":
 		for q in 30: await process_frame
 		var gi: int = main.m.gioc_di("fr")

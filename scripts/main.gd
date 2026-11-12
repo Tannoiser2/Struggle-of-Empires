@@ -1075,14 +1075,13 @@ func _prossima_animazione() -> void:
 			else:
 				await plancia.mostra_viaggio(a["ev"])
 		"battaglia":
+			# tutto il resoconto resta nel riquadro della battaglia: se combatti tu aspetta "Continua"
+			var cbx: Dictionary = a["cb"]
+			var umano := io(int(cbx.get("att", -1))) or io(m.gioc_di(str(cbx.get("dpot", ""))))
 			if vista_3d:
-				await vista.mostra_battaglia(a["cb"])
+				await vista.mostra_battaglia(cbx, umano)
 			else:
-				await plancia.mostra_battaglia(a["cb"])
-			if in_partita:
-				_mostra_combattimento(a["cb"])
-				while popup_aperto and in_partita:
-					await get_tree().process_frame
+				await plancia.mostra_battaglia(cbx, umano)
 		"punteggio":
 			_mostra_punteggio(a["ev"])
 			while popup_aperto and in_partita:

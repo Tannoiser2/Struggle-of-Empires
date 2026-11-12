@@ -1714,7 +1714,7 @@ func composizione(lato: String, dominio: String) -> Dictionary:
 	if dominio == "t" and cb["nav"] == lato:
 		parti.append("Supporto navale +%d" % (2 if cb["blocco"] else 1))
 	if parti.is_empty() and princ != "":
-		parti.append("%s: nessuna unità, solo il segnalino Controllo (forza 0)" % nome_pot(princ))
+		parti.append("%s: solo il segnalino Controllo" % nome_pot(princ))
 	return {"parti": parti, "unita": unita}
 
 # ------------------------------------------------------------ fase navale

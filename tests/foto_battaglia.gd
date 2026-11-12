@@ -29,20 +29,25 @@ func _run():
 	main.animazioni = []
 	main.velocita = 1.0
 	main._aggiorna_tutto()
-	for t in [0.6, 1.6, 2.6, 3.4, 4.4]:
-		await create_timer(t - (0.0 if t == 0.6 else 0.0)).timeout
-		await shot("batt3d_%s" % str(t).replace(".", "_"))
+	var k := 0
+	for t in [0.6, 1.5, 0.35, 0.35, 0.5, 1.8, 1.5]:
+		await create_timer(t).timeout
+		k += 1
+		await shot("batt3d_%d" % k)
 	# 2D
 	while main.animazione_in_corso:
 		await process_frame
 		if main.popup_aperto:
 			main._chiudi_popup()
+		if main.vista.bottone_riquadro.visible:
+			await create_timer(0.3).timeout
+			main.vista.continua_premuto.emit()
 	main.vista_3d = false
 	main._mostra_vista()
 	main.ultimo_cb_visto = -1
 	main._controlla_eventi()
 	await create_timer(0.6).timeout
 	await shot("batt2d_a")
-	await create_timer(2.0).timeout
+	await create_timer(3.0).timeout
 	await shot("batt2d_b")
 	quit()

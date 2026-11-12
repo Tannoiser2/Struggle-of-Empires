@@ -51,6 +51,32 @@ const AMERICHE := ["nordamerica", "caraibi", "sudamerica"]
 ## regioni dove possono stare le flotte (oltre alla propria patria)
 const NAVALI := ["nordamerica", "caraibi", "sudamerica", "africa", "india", "indie", "baltico", "mediterraneo"]
 
+## contorni veri delle regioni (estratti dalla plancia con tools/confini.py): liste di poligoni in frazioni
+static var _confini: Dictionary = {}
+static func confini(reg: String) -> Array:
+	if _confini.is_empty():
+		var f := FileAccess.open("res://assets/mappa/confini.json", FileAccess.READ)
+		if f != null:
+			var d = JSON.parse_string(f.get_as_text())
+			if d is Dictionary:
+				for k in d:
+					var lista: Array = []
+					for poly in d[k]:
+						var pv := PackedVector2Array()
+						for q in poly:
+							pv.append(Vector2(float(q[0]), float(q[1])))
+						lista.append(pv)
+					_confini[k] = lista
+	return _confini.get(reg, [])
+
+## la regione il cui confine contiene il punto (frazioni della plancia), "" se nessuna
+static func regione_in(f: Vector2) -> String:
+	for reg in REGIONI:
+		for poly in confini(reg):
+			if Geometry2D.is_point_in_polygon(f, poly):
+				return reg
+	return ""
+
 ## la regione le cui flotte combattono per una regione (le flotte del Mediterraneo servono anche l'Impero Ottomano)
 static func mare_di(reg: String) -> String:
 	if reg == "ottomano":
