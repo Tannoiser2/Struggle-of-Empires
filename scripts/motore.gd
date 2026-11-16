@@ -834,7 +834,7 @@ func _sposta(i: int, da: String, a: String, t: int, cont: String) -> void:
 func _chiedi_dsm(i: int) -> void:
 	var d: Dictionary = s["ctx"]["dsm"]
 	var opz: Array = []
-	var nu: String = NOMI_U[int(d["t"])].to_lower()
+	var nu: String = ["l'esercito", "la flotta", "il forte"][int(d["t"])]
 	if d["esito"] == "fermo":
 		opz.append({"id": "paga1", "testo": "Paga 1 Oro e completa il viaggio"})
 		opz.append({"id": "resta", "testo": "L'unità resta in %s" % Dati.REGIONI[d["da"]]["nome"]})

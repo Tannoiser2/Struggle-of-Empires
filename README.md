@@ -33,6 +33,12 @@ Scelte di regole: Tensione visibile (variante Open Unrest del regolamento Deluxe
 aperto con 4 facce "riuscito", 1 "fermo", 1 "affonda"; numero di tessere ridotto in proporzione con meno di
 7 giocatori; le Alleanze Locali "esercito o flotta" si usano in mare solo se il lato non combatte a terra.
 
+## Tutorial
+
+Dal menu, **Tutorial: impara giocando** apre una partita guidata (Inghilterra contro Francia, Spagna e Russia, seme fisso 23, quindi sempre identica). Il tutore spiega in 79 passi regole e strategie: piazzamento, asta delle Grandi Alleanze, attacchi e lettura delle battaglie, trattative, colonizzazione, tessere, azioni gratuite, dado del Viaggio, Alleanze Locali, azioni segrete, fine guerra e quattro pagine di strategia. Si giocano tre turni completi: durante le mosse guidate il gioco accetta solo la mossa indicata. Poi la partita continua liberamente con un consiglio del tutore a ogni decisione. La partita del tutorial non viene salvata.
+
+Il copione è in `scripts/tutorial.gd`. `tests/tut_pilota.gd` gioca la stessa partita senza interfaccia e stampa il registro (utile per riscrivere i testi se cambiano motore o IA); `tests/tutorial_auto.gd` la gioca attraverso l'interfaccia e controlla che si arrivi in fondo.
+
 ## Struttura
 
 - `scripts/motore.gd` - le regole: tutto lo stato in un dizionario, decisioni numerate (stessa sequenza = stessa partita).

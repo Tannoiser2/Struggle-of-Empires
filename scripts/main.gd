@@ -73,6 +73,7 @@ var bottoni_vel: Array = []
 var opz_filtrate_reg := ""
 ## scelte in sequenza decise con un solo clic sulla mappa: [[tipo di richiesta, scelta], ...]
 var piano: Array = []
+var tutorial: Tutorial = null
 var piano_in_corso := false
 
 # online
@@ -182,6 +183,9 @@ func immagine(path: String, w: float, h: float) -> TextureRect:
 	return t
 
 func pulisci() -> void:
+	if tutorial != null:
+		tutorial.queue_free()
+		tutorial = null
 	for c in schermo.get_children():
 		c.queue_free()
 	in_partita = false
@@ -244,6 +248,7 @@ func mostra_menu() -> void:
 		v.add_child(bottone("Continua la partita salvata", _menu_continua, 26))
 	v.add_child(bottone("Gioca online con gli amici", _menu_online, 26))
 	v.add_child(bottone("Riprendi la partita salvata su Firebase", _continua_firebase, 22))
+	v.add_child(bottone("Tutorial: impara giocando", _avvia_tutorial, 22))
 	v.add_child(bottone("Le regole in breve", _menu_regole, 22))
 	var nota := etichetta("Versione digitale per uso personale.", F_CORSIVO, 17, C_SPENTO)
 	nota.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -345,6 +350,18 @@ func _avvia_locale() -> void:
 	online = false
 	mio_posto = 0
 	_apri_partita()
+
+## partita guidata: Inghilterra contro tre IA, seme fisso (vedi Tutorial.CONFIG)
+func _avvia_tutorial() -> void:
+	m = Motore.new()
+	m.nuova(Tutorial.CONFIG.duplicate(true))
+	ia = IA.new(m)
+	online = false
+	mio_posto = 0
+	_apri_partita()
+	tutorial = Tutorial.new()
+	add_child(tutorial)
+	tutorial.avvia(self)
 
 func _menu_continua() -> void:
 	var f := FileAccess.open(SALVA_LOCALE, FileAccess.READ)
@@ -800,6 +817,11 @@ func _mostra_vista() -> void:
 	plancia.queue_redraw()
 
 func _evidenzia(regs: Array, oggetti: Array = []) -> void:
+	if tutorial != null:
+		var e = tutorial.evidenza()
+		if e != null:
+			regs = e[0]
+			oggetti = e[1]
 	plancia.evidenzia = regs
 	plancia.evid_oggetti = oggetti
 	plancia.queue_redraw()
@@ -1405,6 +1427,8 @@ func _process(delta: float) -> void:
 	if seat < 0:
 		if (popup_aperto or animazione_in_corso) and not online:
 			return
+		if tutorial != null and tutorial.pausa_ia():
+			return
 		attesa += delta * velocita
 		var pausa := 0.55 if r["k"] in ["azione", "asta", "piazza"] else 0.3
 		if attesa >= pausa:
@@ -1435,6 +1459,11 @@ func _aspetta_remoto() -> void:
 	aspetto_rete = false
 
 func _decidi(id: String) -> void:
+	var k_tut: String = m.richiesta().get("k", "")
+	if tutorial != null and not tutorial.consenti(k_tut, id):
+		richiesta_mostrata = -1
+		piano = []
+		return
 	if online:
 		var n: int = m.s["passo"]
 		var ok := await net.post_decision(codice, n, {"id": id})
@@ -1448,11 +1477,13 @@ func _decidi(id: String) -> void:
 	opz_filtrate_reg = ""
 	_seleziona("")
 	_aggiorna_tutto()
+	if tutorial != null:
+		tutorial.fatto(k_tut, id)
 	if not online:
 		_salva(false)
 
 func _salva(subito: bool) -> void:
-	if online or m == null:
+	if online or m == null or tutorial != null:
 		return
 	var testo := JSON.stringify(m.s)
 	var f := FileAccess.open(SALVA_LOCALE, FileAccess.WRITE)

@@ -743,6 +743,12 @@ func _anello(reg: String, col: Color, r: float) -> void:
 func _attendi(sec: float) -> void:
 	await get_tree().create_timer(sec / maxf(velocita, 0.5)).timeout
 
+## porta la telecamera sopra una regione (usato dal tutorial)
+func inquadra_regione(reg: String) -> void:
+	if not Dati.REGIONI.has(reg):
+		return
+	_vola_camera(pf(Dati.REGIONI[reg]["pos"]) + Vector3(-9.0, 0, 7.0), 62.0, deg_to_rad(58.0), 0.0, 0.9)
+
 func _vola_camera(dest: Vector3, dist: float, pit: float, yw: float, sec := 0.7) -> void:
 	var b0 := bersaglio
 	var d0 := distanza
